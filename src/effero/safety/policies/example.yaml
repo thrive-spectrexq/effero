@@ -1,0 +1,39 @@
+# Example Effero safety policy.
+#
+# This documents the intended shape of a policy file (see the "Safety &
+# Governance" section of the top-level README). The runtime grounding /
+# verification logic that actually evaluates these rules against live
+# device state is not implemented in this scaffold yet -- see ROADMAP.
+
+version: 1
+
+rules:
+  - id: no-exterior-unlock-at-night
+    description: >
+      Never unlock an exterior door between 23:00 and 06:00 without
+      explicit human approval.
+    applies_to: ["iot.locks.*"]
+    condition: "time.hour >= 23 or time.hour < 6"
+    action: require_approval
+
+  - id: manipulator-speed-near-humans
+    description: >
+      Limit end-effector speed to 0.5 m/s whenever a person is detected
+      within 1 meter of the robot.
+    applies_to: ["robotics.arm_*", "robotics.navigate"]
+    condition: "nearest_person_distance_m < 1.0"
+    action: limit
+    limit:
+      max_speed_mps: 0.5
+
+  - id: no-destructive-file-ops-without-approval
+    description: >
+      Any computer-use skill that deletes or overwrites files requires
+      human approval, regardless of the skill's own default safety class.
+    applies_to: ["computer_use.file_delete", "computer_use.file_overwrite"]
+    condition: "true"
+    action: require_approval
+
+# Fallback behavior for any skill not matched by a rule above.
+defaults:
+  unknown_skill_action: require_approval

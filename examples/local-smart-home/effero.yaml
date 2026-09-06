@@ -1,0 +1,31 @@
+# Example Effero project config: a fully local, voice-controlled home
+# automation agent. See examples/local-smart-home/README.md for context.
+#
+# NOTE: this describes the target shape of the config once `effero run`
+# is implemented (see ROADMAP in the top-level README) -- it is not yet
+# a runnable config in this scaffold.
+
+agent:
+  name: home-and-desk-assistant
+  model:
+    backend: ollama
+    model: qwen3:8b
+    fallback: [anthropic:claude-sonnet-5]
+
+perception:
+  audio:
+    wake_word: "hey effero"
+    asr: faster-whisper:small.en
+    tts: piper:en_US-amy-medium
+  vision:
+    enabled: true
+    backend: yolov9
+
+skills:
+  - iot.lights # via MQTT/Matter
+  - iot.thermostat
+  - computer_use.browser
+
+safety:
+  policy: ../../src/effero/safety/policies/example.yaml
+  require_approval_for: [computer_use.file_delete]
