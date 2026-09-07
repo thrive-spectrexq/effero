@@ -92,7 +92,7 @@ Effero is organized in six layers. Data flows up from perception, through cognit
 │  │   Orchestrator /   │  │    Memory    │  │       Model Router         │   │
 │  │      Planner       │  │              │  │                            │   │
 │  │  plan → act →      │  │  working     │  │  local llama.cpp / Ollama  │   │
-│  │  observe → replan  │  │  episodic    │  │         ⇅                     
+│  │  observe → replan  │  │  episodic    │  │         ⇅                  │   │
 │  │                    │  │  semantic    │  │  cloud  OpenAI / Anthropic │   │
 │  └────────────────────┘  └──────────────┘  │         / Google           │   │
 │                                            └────────────────────────────┘   │
