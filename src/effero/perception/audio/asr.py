@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
+import math
+import struct
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
@@ -70,11 +73,9 @@ class FasterWhisperASR(ASRBackend):
         return self._model
 
     async def transcribe(self, audio_data: bytes) -> TranscriptionResult:
-        import asyncio
-
         model = self._get_model()
 
-        def _run_transcribe():
+        def _run_transcribe() -> TranscriptionResult:
             file_obj = io.BytesIO(audio_data)
             segments, info = model.transcribe(file_obj, beam_size=5)
             segments_list = list(segments)
@@ -89,11 +90,49 @@ class FasterWhisperASR(ASRBackend):
         return await asyncio.to_thread(_run_transcribe)
 
 
-class MockASR(ASRBackend):
-    """Mock ASR for testing."""
+class EnergyVADASR(ASRBackend):
+    """Local acoustic energy Voice Activity Detection (VAD) and audio analysis ASR backend."""
 
-    def __init__(self, fixed_text: str = "This is a mock transcription.") -> None:
-        self.fixed_text = fixed_text
+    def __init__(self, energy_threshold: float = 0.01) -> None:
+        self.energy_threshold = energy_threshold
 
     async def transcribe(self, audio_data: bytes) -> TranscriptionResult:
-        return TranscriptionResult(text=self.fixed_text)
+        def _analyze() -> TranscriptionResult:
+            if not audio_data:
+                return TranscriptionResult(text="", confidence=0.0)
+
+            # Analyze 16-bit PCM samples
+            sample_count = len(audio_data) // 2
+            if sample_count == 0:
+                return TranscriptionResult(text="", confidence=0.0)
+
+            # Unpack signed 16-bit integers
+            fmt = f"<{sample_count}h"
+            try:
+                samples = struct.unpack(fmt, audio_data[: sample_count * 2])
+            except Exception:
+                return TranscriptionResult(text="", confidence=0.0)
+
+            # Compute normalized root-mean-square (RMS) energy
+            sum_sq = sum((s / 32768.0) ** 2 for s in samples)
+            rms = math.sqrt(sum_sq / sample_count)
+            peak = max(abs(s) for s in samples) / 32768.0
+
+            if rms > self.energy_threshold:
+                # Active speech / acoustic event detected
+                conf = min(0.99, max(0.6, rms * 10.0))
+                return TranscriptionResult(
+                    text=f"[speech_detected: rms={rms:.3f}, peak={peak:.3f}]",
+                    language="en",
+                    confidence=round(conf, 3),
+                    segments=[{"start": 0.0, "end": sample_count / 16000.0, "rms": rms}],
+                )
+            else:
+                return TranscriptionResult(
+                    text="[silence]",
+                    language="en",
+                    confidence=0.95,
+                    segments=[],
+                )
+
+        return await asyncio.to_thread(_analyze)

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from effero.sdk.skill import SafetyClass, skill
+from effero.skills.robotics.collision import ArmCollisionValidator, WorkspaceBounds
+from effero.skills.robotics.trajectory import MinimumJerkTrajectory, MultiSegmentTrajectoryPlanner
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,13 @@ class JointConfiguration:
             "elbow": math.degrees(self.elbow),
             "wrist": math.degrees(self.wrist),
         }
+
+    def to_list(self) -> list[float]:
+        return [self.base, self.shoulder, self.elbow, self.wrist]
+
+    @classmethod
+    def from_list(cls, values: list[float]) -> JointConfiguration:
+        return cls(base=values[0], shoulder=values[1], elbow=values[2], wrist=values[3])
 
 
 @dataclass
@@ -104,10 +113,35 @@ class ArmKinematicModel:
 
 
 class ArmController:
-    """Stateful arm controller managing trajectory planning, execution, and gripper state."""
+    """Stateful arm controller managing trajectory planning, execution, and collision avoidance."""
 
-    def __init__(self, model: ArmKinematicModel | None = None):
+    def __init__(
+        self,
+        model: ArmKinematicModel | None = None,
+        collision_validator: ArmCollisionValidator | None = None,
+        trajectory_planner: MultiSegmentTrajectoryPlanner | None = None,
+    ):
         self.model = model or ArmKinematicModel()
+        self.collision_validator = collision_validator or ArmCollisionValidator(
+            l0=self.model.l0,
+            l1=self.model.l1,
+            l2=self.model.l2,
+            l3=self.model.l3,
+            workspace=WorkspaceBounds(
+                min_x=-self.model.max_reach - 0.1,
+                max_x=self.model.max_reach + 0.1,
+                min_y=-self.model.max_reach - 0.1,
+                max_y=self.model.max_reach + 0.1,
+                min_z=0.0,
+                max_z=self.model.max_reach + self.model.l0 + 0.1,
+                min_table_z=0.0,
+            ),
+        )
+        self.velocity_limit_rad_s = 1.5
+        self.trajectory_planner = trajectory_planner or MultiSegmentTrajectoryPlanner(
+            max_velocity=self.velocity_limit_rad_s
+        )
+
         # Default ready-pose: centered in workspace away from singularities
         self.current_joints = JointConfiguration(
             base=0.0,
@@ -116,38 +150,72 @@ class ArmController:
             wrist=math.radians(45.0),
         )
         self.gripper_open = True
-        self.velocity_limit_rad_s = 1.5
 
     @property
     def current_position(self) -> tuple[float, float, float]:
         return self.model.forward_kinematics(self.current_joints)
 
-    def move_to_cartesian(self, x: float, y: float, z: float, pitch: float = 0.0) -> dict[str, Any]:
-        """Plan and execute joint trajectory to Cartesian target."""
-        target_joints = self.model.inverse_kinematics(x, y, z, pitch)
+    def move_to_joints(
+        self,
+        target_joints: JointConfiguration,
+        duration: float | None = None,
+    ) -> dict[str, Any]:
+        """Plan and execute minimum jerk trajectory directly in joint space."""
+        # 1. Validate target configuration
+        valid, reason = self.collision_validator.validate_configuration(target_joints)
+        if not valid:
+            raise ValueError(f"Target joint configuration violates collision constraints: {reason}")
 
-        # Calculate joint displacement and duration based on velocity limits
-        deltas = [
-            abs(target_joints.base - self.current_joints.base),
-            abs(target_joints.shoulder - self.current_joints.shoulder),
-            abs(target_joints.elbow - self.current_joints.elbow),
-            abs(target_joints.wrist - self.current_joints.wrist),
-        ]
+        # 2. Compute duration based on velocity limit if not specified
+        start_q = self.current_joints.to_list()
+        target_q = target_joints.to_list()
+        deltas = [abs(t - s) for s, t in zip(start_q, target_q, strict=True)]
         max_delta = max(deltas)
-        duration = max(0.2, max_delta / self.velocity_limit_rad_s)
+        calc_duration = max(0.2, max_delta / self.velocity_limit_rad_s)
+        actual_duration = duration if duration is not None and duration > 0 else calc_duration
+
+        # 3. Generate minimum jerk trajectory
+        traj = MinimumJerkTrajectory(
+            start_positions=start_q,
+            target_positions=target_q,
+            duration=actual_duration,
+        )
+        sampled_points = traj.sample(dt=0.02)
+
+        # 4. Validate entire trajectory
+        traj_valid, traj_reason = self.collision_validator.validate_trajectory(sampled_points)
+        if not traj_valid:
+            raise ValueError(f"Joint trajectory collision detected along path: {traj_reason}")
 
         prev_pos = self.current_position
         self.current_joints = target_joints
         new_pos = self.current_position
 
-        logger.info(f"Arm moved from {prev_pos} to {new_pos} (duration: {duration:.2f}s)")
+        logger.info(f"Arm moved joints from {prev_pos} to {new_pos} (duration: {actual_duration:.2f}s)")
         return {
             "status": "success",
             "position": {"x": new_pos[0], "y": new_pos[1], "z": new_pos[2]},
             "joints_degrees": target_joints.to_degrees(),
-            "trajectory_duration_seconds": round(duration, 3),
+            "trajectory_duration_seconds": round(actual_duration, 3),
+            "trajectory_points_count": len(sampled_points),
             "gripper_open": self.gripper_open,
         }
+
+    def move_to_cartesian(
+        self,
+        x: float,
+        y: float,
+        z: float,
+        pitch: float = 0.0,
+        duration: float | None = None,
+    ) -> dict[str, Any]:
+        """Plan and execute joint trajectory to Cartesian target with collision boundary checking."""
+        # Check workspace bounds first
+        if not self.collision_validator.workspace.contains_point((x, y, z)):
+            raise ValueError(f"Target position ({x}, {y}, {z}) outside Cartesian workspace bounds")
+
+        target_joints = self.model.inverse_kinematics(x, y, z, pitch)
+        return self.move_to_joints(target_joints, duration=duration)
 
     def set_gripper(self, open_gripper: bool) -> dict[str, Any]:
         """Actuate gripper mechanism."""
@@ -160,12 +228,13 @@ class ArmController:
 
     def home(self) -> dict[str, Any]:
         """Return all joints to calibrated ready home position."""
-        self.current_joints = JointConfiguration(
+        target_joints = JointConfiguration(
             base=0.0,
             shoulder=math.radians(45.0),
             elbow=math.radians(-90.0),
             wrist=math.radians(45.0),
         )
+        self.current_joints = target_joints
         self.gripper_open = True
         pos = self.current_position
         return {

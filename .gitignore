@@ -52,3 +52,9 @@ models/
 # workspace). Remove this line once a valid one is committed from a
 # Rust 1.85+ build.
 Cargo.lock
+
+# Agent scratch and teamwork coordination metadata
+.agents/
+ORIGINAL_REQUEST.md
+PROJECT.md
+TEST_INFRA.md

@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
+import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
 from typing import Any
+
+import psutil
 
 from effero.core.event_bus import Event, EventBus
 from effero.perception.base import PerceptionPipeline
@@ -20,7 +23,7 @@ class SensorReading:
     sensor_id: str
     value: float | dict
     unit: str
-    timestamp: datetime
+    timestamp: float = field(default_factory=time.time)
 
 
 class SensorBackend(ABC):
@@ -32,14 +35,50 @@ class SensorBackend(ABC):
         ...
 
 
-class MockSensor(SensorBackend):
-    """Mock sensor for testing."""
+class SystemMetricsSensor(SensorBackend):
+    """Reads real physical and host system metrics (CPU, RAM, Disk telemetry)."""
 
-    def __init__(self, fixed_readings: list[SensorReading] | None = None) -> None:
-        self.fixed_readings = fixed_readings or []
+    def __init__(self) -> None:
+        # Initialize CPU measurement
+        psutil.cpu_percent(interval=None)
 
     async def read(self) -> list[SensorReading]:
-        return self.fixed_readings
+        def _collect() -> list[SensorReading]:
+            now = time.time()
+            cpu_val = float(psutil.cpu_percent(interval=None))
+            mem = psutil.virtual_memory()
+            mem_val = float(mem.percent)
+
+            # Check primary partition for disk usage
+            root_path = "C:\\" if sys.platform.startswith("win") else "/"
+            try:
+                disk = psutil.disk_usage(root_path)
+                disk_val = float(disk.percent)
+            except Exception:
+                disk_val = 0.0
+
+            return [
+                SensorReading(
+                    sensor_id="system.cpu.percent",
+                    value=cpu_val,
+                    unit="%",
+                    timestamp=now,
+                ),
+                SensorReading(
+                    sensor_id="system.memory.percent",
+                    value=mem_val,
+                    unit="%",
+                    timestamp=now,
+                ),
+                SensorReading(
+                    sensor_id="system.disk.percent",
+                    value=disk_val,
+                    unit="%",
+                    timestamp=now,
+                ),
+            ]
+
+        return await asyncio.to_thread(_collect)
 
 
 class SensorPipeline(PerceptionPipeline):
@@ -52,7 +91,7 @@ class SensorPipeline(PerceptionPipeline):
         poll_interval: float = 1.0,
     ) -> None:
         super().__init__(event_bus)
-        self.sensor_backend = sensor_backend or MockSensor()
+        self.sensor_backend: SensorBackend = sensor_backend or SystemMetricsSensor()
         self.poll_interval = poll_interval
         self._task: asyncio.Task | None = None
 
@@ -90,7 +129,7 @@ class SensorPipeline(PerceptionPipeline):
                         timestamp=reading.timestamp,
                         source="sensor_pipeline",
                     )
-                    await self.event_bus.publish(event)
+                    self.event_bus.publish(event)
             except Exception as e:
                 logger.error(f"Error reading sensors: {e}", exc_info=True)
 
@@ -100,8 +139,5 @@ class SensorPipeline(PerceptionPipeline):
     def from_config(cls, config: dict[str, Any], event_bus: EventBus) -> SensorPipeline:
         """Create a SensorPipeline from configuration."""
         poll_interval = config.get("poll_interval", 1.0)
-
-        # Add support for other sensor backends as needed
-        sensor = MockSensor()
-
+        sensor: SensorBackend = SystemMetricsSensor()
         return cls(event_bus=event_bus, sensor_backend=sensor, poll_interval=poll_interval)

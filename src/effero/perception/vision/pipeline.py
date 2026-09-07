@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+import time
 from typing import Any
 
 from effero.core.event_bus import Event, EventBus
 from effero.perception.base import PerceptionPipeline
-from effero.perception.vision.detector import Detection, DetectionBackend, MockDetector
+from effero.perception.vision.detector import ColorBlobDetector, Detection, DetectionBackend
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class VisionPipeline(PerceptionPipeline):
 
     def __init__(self, event_bus: EventBus, detector_backend: DetectionBackend | None = None) -> None:
         super().__init__(event_bus)
-        self.detector_backend = detector_backend or MockDetector()
+        self.detector_backend: DetectionBackend = detector_backend or ColorBlobDetector()
 
     async def start(self) -> None:
         self._running = True
@@ -45,10 +45,10 @@ class VisionPipeline(PerceptionPipeline):
                     for d in detections
                 ]
             },
-            timestamp=datetime.now(UTC),
+            timestamp=time.time(),
             source="vision_pipeline",
         )
-        await self.event_bus.publish(event)
+        self.event_bus.publish(event)
 
         return detections
 
@@ -56,8 +56,9 @@ class VisionPipeline(PerceptionPipeline):
     def from_config(cls, config: dict[str, Any], event_bus: EventBus) -> VisionPipeline:
         """Create a VisionPipeline from configuration."""
         detector_config = config.get("detector", {})
-        detector_type = detector_config.get("type", "mock")
+        detector_type = detector_config.get("type", "blob")
 
+        detector: DetectionBackend
         if detector_type == "yolo":
             from effero.perception.vision.detector import YOLODetector
 
@@ -66,6 +67,9 @@ class VisionPipeline(PerceptionPipeline):
                 confidence_threshold=detector_config.get("confidence_threshold", 0.5),
             )
         else:
-            detector = MockDetector()
+            detector = ColorBlobDetector(
+                target_color=detector_config.get("target_color", "bright"),
+                threshold=detector_config.get("threshold", 128),
+            )
 
         return cls(event_bus=event_bus, detector_backend=detector)

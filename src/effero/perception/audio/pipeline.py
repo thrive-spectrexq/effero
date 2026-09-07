@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+import time
 from typing import Any
 
 from effero.core.event_bus import Event, EventBus
-from effero.perception.audio.asr import ASRBackend, MockASR
-from effero.perception.audio.tts import MockTTS, TTSBackend
+from effero.perception.audio.asr import ASRBackend, EnergyVADASR
+from effero.perception.audio.tts import ToneSynthesizerTTS, TTSBackend
 from effero.perception.base import PerceptionPipeline
 
 logger = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ class AudioPipeline(PerceptionPipeline):
         tts_backend: TTSBackend | None = None,
     ) -> None:
         super().__init__(event_bus)
-        self.asr_backend = asr_backend or MockASR()
-        self.tts_backend = tts_backend or MockTTS()
+        self.asr_backend: ASRBackend = asr_backend or EnergyVADASR()
+        self.tts_backend: TTSBackend = tts_backend or ToneSynthesizerTTS()
 
     async def start(self) -> None:
         self._running = True
@@ -46,10 +46,10 @@ class AudioPipeline(PerceptionPipeline):
                 "language": result.language,
                 "confidence": result.confidence,
             },
-            timestamp=datetime.now(UTC),
+            timestamp=time.time(),
             source="audio_pipeline",
         )
-        await self.event_bus.publish(event)
+        self.event_bus.publish(event)
 
         return result.text
 
@@ -60,10 +60,10 @@ class AudioPipeline(PerceptionPipeline):
         event = Event(
             topic="perception.audio.speech",
             data={"text": text},
-            timestamp=datetime.now(UTC),
+            timestamp=time.time(),
             source="audio_pipeline",
         )
-        await self.event_bus.publish(event)
+        self.event_bus.publish(event)
 
         return audio_data
 
@@ -73,9 +73,10 @@ class AudioPipeline(PerceptionPipeline):
         asr_config = config.get("asr", {})
         tts_config = config.get("tts", {})
 
-        asr_type = asr_config.get("type", "mock")
-        tts_type = tts_config.get("type", "mock")
+        asr_type = asr_config.get("type", "vad")
+        tts_type = tts_config.get("type", "tone")
 
+        asr: ASRBackend
         if asr_type == "openai":
             from effero.perception.audio.asr import OpenAIWhisperASR
 
@@ -85,8 +86,9 @@ class AudioPipeline(PerceptionPipeline):
 
             asr = FasterWhisperASR(model_size=asr_config.get("model_size", "small.en"))
         else:
-            asr = MockASR()
+            asr = EnergyVADASR(energy_threshold=asr_config.get("energy_threshold", 0.01))
 
+        tts: TTSBackend
         if tts_type == "openai":
             from effero.perception.audio.tts import OpenAITTS
 
@@ -96,6 +98,9 @@ class AudioPipeline(PerceptionPipeline):
                 api_key=tts_config.get("api_key"),
             )
         else:
-            tts = MockTTS()
+            tts = ToneSynthesizerTTS(
+                sample_rate=tts_config.get("sample_rate", 16000),
+                base_freq=tts_config.get("base_freq", 440.0),
+            )
 
         return cls(event_bus=event_bus, asr_backend=asr, tts_backend=tts)

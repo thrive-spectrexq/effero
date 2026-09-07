@@ -65,10 +65,12 @@ class LightweightTFIDFEmbedding(EmbeddingProvider):
     without requiring external model weights, torch, or API tokens.
     """
 
-    def __init__(self, dim: int = 128):
+    def __init__(self, dim: int = 256):
         self.dim = dim
 
     def embed(self, text: str) -> list[float]:
+        import hashlib
+
         tokens = [t.strip().lower() for t in text.split() if t.strip()]
         if not tokens:
             return [0.0] * self.dim
@@ -83,7 +85,8 @@ class LightweightTFIDFEmbedding(EmbeddingProvider):
 
         counts = Counter(features)
         for feat, count in counts.items():
-            h = abs(hash(feat)) % self.dim
+            digest = hashlib.md5(feat.encode("utf-8")).digest()
+            h = int.from_bytes(digest[:4], "little") % self.dim
             vec[h] += float(count)
 
         # L2 normalize
