@@ -8,6 +8,7 @@ from typing import Any
 from effero.config import EfferoConfig
 from effero.core.event_bus import EventBus
 from effero.core.memory.episodic import EpisodicMemory
+from effero.core.memory.semantic import SemanticMemory
 from effero.core.memory.working import WorkingMemory
 from effero.core.planner.planner import Planner
 from effero.core.router.router import ModelRouter
@@ -25,12 +26,18 @@ class Agent:
     safety client, planner, and perception pipelines.
     """
 
-    def __init__(self, config: EfferoConfig | None = None, skills: SkillRegistry | None = None) -> None:
+    def __init__(
+        self,
+        config: EfferoConfig | None = None,
+        skills: SkillRegistry | None = None,
+        approval_handler=None,
+    ) -> None:
         self.config = config or EfferoConfig.load()
         self.event_bus = EventBus()
         self.skills = skills or global_registry
         self.working_memory = WorkingMemory()
         self.episodic_memory = EpisodicMemory()
+        self.semantic_memory = SemanticMemory()
         self.router = ModelRouter(self.config.agent.model)
         self.safety: SafetyClient | None = None
         if self.config.safety.enabled:
@@ -38,11 +45,22 @@ class Agent:
                 host=self.config.safety.kernel_host,
                 port=self.config.safety.kernel_port,
             )
+
+        if approval_handler is not None:
+            self.approval_handler = approval_handler
+        elif self.config.safety.approval_mode == "auto":
+            from effero.safety.approval import AutoApprovalHandler
+            self.approval_handler = AutoApprovalHandler(approve_all=True)
+        else:
+            from effero.safety.approval import ConsoleApprovalHandler
+            self.approval_handler = ConsoleApprovalHandler()
+
         self.planner = Planner(
             router=self.router,
             memory=self.working_memory,
             skills=self.skills,
             safety_client=self.safety,
+            approval_handler=self.approval_handler,
         )
 
     async def run(self, instruction: str) -> str:
@@ -103,4 +121,4 @@ class Agent:
 
     def available_skills(self) -> list[str]:
         """List names of all registered skills."""
-        return [s.name for s in self.skills.list()]
+        return list(self.skills.list())

@@ -48,6 +48,7 @@ class SafetyConfig(BaseModel):
     kernel_port: int = 9400
     policy: str | None = None
     require_approval_for: list[str] = Field(default_factory=list)
+    approval_mode: str = "console"
 
 
 class AgentConfig(BaseModel):

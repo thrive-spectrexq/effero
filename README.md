@@ -34,19 +34,6 @@ Effero's job is to sit in the middle: **one agent runtime, one skill/tool abstra
 
 ## Why Effero
 
-| | Existing agent frameworks | Existing robotics/IoT stacks | **Effero** |
-|---|---|---|---|
-| Multi-step LLM planning & memory | ✅ | ❌ | ✅ |
-| Native speech in/out (ASR, TTS, wake-word) | ⚠️ bolted on | ⚠️ varies | ✅ first-class pipeline |
-| Native vision (detection, VLA, grounding) | ⚠️ bolted on | ⚠️ varies | ✅ first-class pipeline |
-| Robot middleware (ROS 2) | ❌ | ✅ | ✅ adapter |
-| IoT protocols (MQTT, Matter, Zigbee, Thread) | ❌ | ✅ | ✅ adapter |
-| Computer-use (desktop/browser control) | ⚠️ some | ❌ | ✅ adapter |
-| Standard tool protocol (MCP) as the *native* interface | ⚠️ add-on | ❌ | ✅ core design |
-| Multi-agent / multi-robot coordination (A2A) | ⚠️ some | ❌ | ✅ core design |
-| Runtime physical-safety guardrails (independent of the LLM) | ❌ | ⚠️ e-stops only | ✅ policy engine |
-| Local-first / fully offline capable | ⚠️ varies | ✅ | ✅ default |
-
 Effero doesn't try to replace ROS 2, Home Assistant, or your favorite agent SDK — it **speaks their protocols** and gives you one coherent reasoning layer on top of all of them.
 
 ---
@@ -349,7 +336,7 @@ This mirrors the direction of current robot-safety research: **safety guarantees
   - ✅ CLI — `effero run`, `effero chat`, `effero init`, `effero skills`, `effero mcp-serve`.
   - ✅ Safety client — async TCP client bridging Python agent to Rust safety kernel.
   - ✅ Docker multi-stage build (Rust kernel + Python runtime).
-  - 🚧 `effero-edge-mcp` — written against `rmcp` API, first real compile pending (see [`crates/effero-edge-mcp/README.md`](crates/effero-edge-mcp/README.md)).
+  - ✅ `effero-edge-mcp` — compiled and verified against `rmcp` v3.2.0 (see [`crates/effero-edge-mcp/README.md`](crates/effero-edge-mcp/README.md)).
 - **v0.2 — Embodiment**: ROS 2 live adapter testing, VLA skill runner, simulation-first safety promotion, computer-use browser automation, semantic memory with vector store, interactive safety approval, Wyoming protocol voice integration.
 - **v0.3 — Multi-agent**: A2A-based fleet coordination, shared memory/negotiation primitives, web dashboard, real-time streaming audio/video.
 - **v1.0 — Hardened**: formalized policy DSL (unifying Python- and Rust-side condition grammars), third-party safety audit, certified reference hardware profiles (Raspberry Pi 5, Jetson Orin), stable skill SDK for community adapters.

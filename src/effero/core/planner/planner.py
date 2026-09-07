@@ -23,11 +23,20 @@ Be cautious with physical actions — prefer to describe your plan before execut
 class Planner:
     """LLM-driven plan/act/observe loop."""
 
-    def __init__(self, router, memory, skills, safety_client=None, max_iterations: int = 10) -> None:
+    def __init__(
+        self,
+        router,
+        memory,
+        skills,
+        safety_client=None,
+        approval_handler=None,
+        max_iterations: int = 10,
+    ) -> None:
         self.router = router  # ModelRouter
         self.memory = memory  # WorkingMemory
         self.skills = skills  # SkillRegistry
         self.safety = safety_client  # SafetyClient or None
+        self.approval_handler = approval_handler  # ApprovalHandler or None
         self.max_iterations = max_iterations
 
     async def run(self, instruction: str) -> str:
@@ -69,8 +78,24 @@ class Planner:
         return "(max planning iterations reached)"
 
     async def _execute_skill(self, name: str, args: dict[str, Any]) -> Any:
-        """Execute a skill, checking safety first."""
-        # Safety check
+        """Execute a skill, checking safety and human approval first."""
+        from effero.sdk.skill import SafetyClass
+
+        # Find skill spec
+        try:
+            skill_spec = self.skills.get(name)
+        except KeyError:
+            return {"error": f"Unknown skill: {name}"}
+
+        needs_approval = (
+            getattr(skill_spec, "safety_class", None) == SafetyClass.ACT_WITH_APPROVAL
+            or getattr(skill_spec, "safety_class", None) == "act_with_approval"
+        )
+        approval_reason = (
+            f"Skill '{name}' has declared safety class {getattr(skill_spec, 'safety_class', 'unknown')}"
+        )
+
+        # Safety kernel check
         if self.safety and self.safety.connected:
             try:
                 decision = await self.safety.check_action(name)
@@ -79,17 +104,27 @@ class Planner:
                     reason = decision.get("reason", "Policy denied this action")
                     return {"error": f"Safety policy denied: {reason}"}
                 elif action == "require_approval":
-                    reason = decision.get("reason", "Requires approval")
-                    logger.warning(f"Skill '{name}' requires approval: {reason}")
-                    # In v0.1, log and proceed. v0.2 will add interactive approval.
+                    needs_approval = True
+                    approval_reason = decision.get("reason", approval_reason)
             except Exception as e:
                 logger.warning(f"Safety check failed: {e} — proceeding with caution")
 
-        # Find and execute skill
-        try:
-            skill_spec = self.skills.get(name)
-        except KeyError:
-            return {"error": f"Unknown skill: {name}"}
+        # Interactive Human-In-The-Loop Approval check
+        if needs_approval and self.approval_handler:
+            from effero.safety.approval import ApprovalRequest
+
+            approval_req = ApprovalRequest(
+                skill_name=name,
+                arguments=args,
+                reason=approval_reason,
+                safety_class=str(getattr(skill_spec, "safety_class", "act_with_approval")),
+            )
+            approval_res = await self.approval_handler.request_approval(approval_req)
+            if not approval_res.approved:
+                logger.warning(f"Skill execution denied by operator: {name}")
+                return {
+                    "error": f"Action unauthorized by human operator: {approval_res.comment or 'Permission denied'}"
+                }
             
         try:
             result = skill_spec(**args)

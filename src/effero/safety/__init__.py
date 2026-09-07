@@ -12,6 +12,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from effero.safety.approval import (
+    ApprovalHandler,
+    ApprovalRequest,
+    ApprovalResponse,
+    AutoApprovalHandler,
+    CallbackApprovalHandler,
+    ConsoleApprovalHandler,
+)
 from effero.safety.client import SafetyClient
 
 
@@ -27,4 +35,14 @@ class GuardrailResult:
     reason: str
 
 
-__all__ = ["PolicyDecision", "GuardrailResult", "SafetyClient"]
+__all__ = [
+    "PolicyDecision",
+    "GuardrailResult",
+    "SafetyClient",
+    "ApprovalRequest",
+    "ApprovalResponse",
+    "ApprovalHandler",
+    "ConsoleApprovalHandler",
+    "AutoApprovalHandler",
+    "CallbackApprovalHandler",
+]

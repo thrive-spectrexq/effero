@@ -176,6 +176,10 @@ def build_parser() -> argparse.ArgumentParser:
     
     subparsers.add_parser("skills", help="List registered skills")
     subparsers.add_parser("mcp-serve", help="Start as MCP server on stdio")
+
+    serve_p = subparsers.add_parser("serve", help="Start HTTP & WebSocket API server")
+    serve_p.add_argument("--host", default="0.0.0.0", help="Host to bind server (default: 0.0.0.0)")
+    serve_p.add_argument("--port", type=int, default=8000, help="Port to bind server (default: 8000)")
     
     return parser
 
@@ -199,6 +203,11 @@ def main(argv: list[str] | None = None) -> int:
         list_skills()
     elif args.command == "mcp-serve":
         asyncio.run(serve_mcp())
+    elif args.command == "serve":
+        import uvicorn
+        from effero.interfaces.server import create_app
+        app = create_app()
+        uvicorn.run(app, host=args.host, port=args.port)
         
     return 0
 
