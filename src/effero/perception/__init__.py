@@ -1,6 +1,22 @@
-"""Perception bus: vision, audio, and sensor-fusion pipelines.
+"""Effero Perception Layer."""
+from __future__ import annotations
 
-Each pipeline publishes structured events onto a shared bus that the
-cognition core subscribes to. See ROADMAP in the top-level README for
-what's implemented vs. planned.
-"""
+# Use lazy imports or direct imports depending on structure
+from effero.perception.audio import ASRBackend, AudioPipeline, TranscriptionResult, TTSBackend
+from effero.perception.base import PerceptionPipeline
+from effero.perception.sensors import SensorBackend, SensorPipeline, SensorReading
+from effero.perception.vision import Detection, DetectionBackend, VisionPipeline
+
+__all__ = [
+    "PerceptionPipeline",
+    "AudioPipeline",
+    "ASRBackend",
+    "TTSBackend",
+    "TranscriptionResult",
+    "VisionPipeline",
+    "DetectionBackend",
+    "Detection",
+    "SensorPipeline",
+    "SensorBackend",
+    "SensorReading",
+]

@@ -1,91 +1,124 @@
-from effero.core.agent import Agent
-from effero.sdk.skill import SafetyClass, SkillRegistry, skill
+"""Tests for skill registration, lookup, and the @skill decorator."""
+from __future__ import annotations
+
+import functools
+import inspect
+
+from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec, skill
+from effero.sdk.skill import registry as default_registry
 
 
 def make_registry() -> SkillRegistry:
-    """A fresh, isolated registry per test so tests can't clash with
-    each other or with skills registered elsewhere in the process.
-    """
+    """A fresh, isolated registry per test so tests can't clash."""
     return SkillRegistry()
 
 
 def test_skill_registration_and_direct_call() -> None:
-    @skill(
-        name="test.echo",
-        description="Echo a value back. Used only in tests.",
-        safety_class=SafetyClass.READ_ONLY,
-    )
-    def _echo(value: str) -> str:
+    reg = make_registry()
+    
+    def echo_fn(value: str) -> str:
         return value
+    
+    spec = SkillSpec(
+        name="test.echo",
+        description="Echo a value back.",
+        safety_class=SafetyClass.READ_ONLY,
+        func=echo_fn,
+        signature=inspect.signature(echo_fn),
+    )
+    functools.update_wrapper(spec, echo_fn)
+    reg.register(spec)
 
-    # The decorator registers against the module-level default registry
-    # by design (see effero.sdk.skill.registry); this test just checks
-    # the resulting SkillSpec behaves correctly when called directly.
-    assert _echo("hello") == "hello"
-    assert _echo.name == "test.echo"
-    assert _echo.safety_class is SafetyClass.READ_ONLY
+    assert spec("hello") == "hello"
+    assert spec.name == "test.echo"
+    assert spec.safety_class is SafetyClass.READ_ONLY
+
+
+def test_registry_get_and_list() -> None:
+    reg = make_registry()
+
+    def add_fn(a: int, b: int) -> int:
+        return a + b
+
+    spec = SkillSpec(
+        name="test.add",
+        description="Add two numbers.",
+        safety_class=SafetyClass.READ_ONLY,
+        func=add_fn,
+        signature=inspect.signature(add_fn),
+    )
+    reg.register(spec)
+
+    assert "test.add" in reg.list()
+    retrieved = reg.get("test.add")
+    assert retrieved.name == "test.add"
+    assert retrieved(2, 3) == 5
 
 
 def test_duplicate_registration_raises() -> None:
     reg = make_registry()
 
-    @reg_skill(reg, "test.dup", SafetyClass.READ_ONLY)
-    def _first() -> int:
+    def first_fn() -> int:
         return 1
 
+    spec1 = SkillSpec(
+        name="test.dup",
+        description="First",
+        safety_class=SafetyClass.READ_ONLY,
+        func=first_fn,
+        signature=inspect.signature(first_fn),
+    )
+    reg.register(spec1)
+
+    def second_fn() -> int:
+        return 2
+
+    spec2 = SkillSpec(
+        name="test.dup",
+        description="Second",
+        safety_class=SafetyClass.READ_ONLY,
+        func=second_fn,
+        signature=inspect.signature(second_fn),
+    )
+
     try:
-
-        @reg_skill(reg, "test.dup", SafetyClass.READ_ONLY)
-        def _second() -> int:
-            return 2
-
+        reg.register(spec2)
     except ValueError as exc:
         assert "already registered" in str(exc)
     else:
         raise AssertionError("Expected ValueError for a duplicate skill name")
 
 
-def test_agent_can_list_and_invoke_registered_skills() -> None:
-    from effero.sdk.skill import registry as default_registry
+def test_clear_removes_all_skills() -> None:
+    reg = make_registry()
 
+    spec = SkillSpec(
+        name="test.clear_me",
+        description="Temp",
+        safety_class=SafetyClass.READ_ONLY,
+        func=lambda: None,
+        signature=inspect.signature(lambda: None),
+    )
+    reg.register(spec)
+    assert len(reg.list()) == 1
+
+    reg.clear()
+    assert len(reg.list()) == 0
+
+
+def test_skill_decorator_registers_to_global_registry() -> None:
     default_registry.clear()
 
     @skill(
-        name="test.add",
-        description="Add two numbers. Used only in tests.",
+        name="test.decorated",
+        description="A decorated skill.",
         safety_class=SafetyClass.READ_ONLY,
     )
-    def _add(a: int, b: int) -> int:
-        return a + b
+    def decorated_fn(x: int) -> int:
+        return x * 2
 
-    agent = Agent(name="test-agent")
+    assert "test.decorated" in default_registry.list()
+    assert decorated_fn(5) == 10
+    assert decorated_fn.name == "test.decorated"
 
-    assert "test.add" in agent.available_skills()
-    assert agent.invoke_skill("test.add", a=2, b=3) == 5
-    assert agent.history[-1].skill_name == "test.add"
-    assert agent.history[-1].result == 5
-
-
-def reg_skill(reg: SkillRegistry, name: str, safety_class: SafetyClass):
-    """Helper: register directly against a specific SkillRegistry instance
-    rather than the module-level default (used to test duplicate-name
-    handling in isolation).
-    """
-    import functools
-    import inspect
-
-    from effero.sdk.skill import SkillSpec
-
-    def decorator(func):
-        spec = SkillSpec(
-            name=name,
-            description="test helper skill",
-            safety_class=safety_class,
-            func=func,
-            signature=inspect.signature(func),
-        )
-        functools.update_wrapper(spec, func)
-        reg.register(spec)
-        return spec
-
-    return decorator
+    default_registry.clear()

@@ -1,7 +1,6 @@
-"""ROS 2 bridge.
+"""ROS 2 adapter module."""
+from __future__ import annotations
 
-Requires the optional `ros2` extra (`pip install effero[ros2]`), which
-pulls in rclpy. This module intentionally does not import rclpy at the
-top level so that `import effero` works fine on machines without ROS 2
-installed.
-"""
+from effero.adapters.ros2.bridge import ROS2Bridge
+
+__all__ = ["ROS2Bridge"]

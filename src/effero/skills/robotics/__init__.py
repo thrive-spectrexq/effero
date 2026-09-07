@@ -1,5 +1,10 @@
-"""Robotics skills (e.g. navigate, pick_place, follow_person, e_stop).
+"""Robotics Skills module."""
+from __future__ import annotations
 
-Placeholder module -- see examples/mobile-manipulator (planned) and the
-effero.adapters.ros2 bridge.
-"""
+from effero.skills.robotics.arm import home, move_to, pick_place
+from effero.skills.robotics.navigate import get_position, go_to, stop
+
+__all__ = [
+    "move_to", "pick_place", "home",
+    "go_to", "stop", "get_position"
+]

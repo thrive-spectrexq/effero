@@ -1,56 +1,106 @@
-"""Minimal placeholder for the Effero plan -> act -> observe -> replan loop.
-
-This is intentionally small: it exists so the package imports cleanly
-and so early contributors have a concrete seam to build the real
-orchestrator described in the top-level README's Architecture section
-(graph-based planning, memory reads/writes, guardrail checks before
-every skill call). See ROADMAP for sequencing.
-"""
-
+"""The Agent — wires together all Effero subsystems."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import asyncio
+import logging
 from typing import Any
 
+from effero.config import EfferoConfig
+from effero.core.event_bus import EventBus
+from effero.core.memory.episodic import EpisodicMemory
+from effero.core.memory.working import WorkingMemory
+from effero.core.planner.planner import Planner
+from effero.core.router.router import ModelRouter
+from effero.safety.client import SafetyClient
 from effero.sdk.skill import SkillRegistry
-from effero.sdk.skill import registry as default_registry
+from effero.sdk.skill import registry as global_registry
+
+logger = logging.getLogger(__name__)
 
 
-@dataclass
-class AgentStep:
-    """A single recorded step in the agent's history."""
-
-    thought: str
-    skill_name: str | None = None
-    result: Any = None
-
-
-@dataclass
 class Agent:
-    """A placeholder orchestrator.
-
-    Real planning logic (LLM calls, replanning on failure, memory
-    integration, guardrail enforcement) lands in a later milestone --
-    this class only wires together the pieces that already exist
-    (the skill registry) so it's usable and testable today.
+    """The top-level Effero agent.
+    
+    Wires together: config, event bus, skills, memory, model router,
+    safety client, planner, and perception pipelines.
     """
 
-    name: str
-    skills: SkillRegistry = field(default_factory=lambda: default_registry)
-    history: list[AgentStep] = field(default_factory=list)
+    def __init__(self, config: EfferoConfig | None = None, skills: SkillRegistry | None = None) -> None:
+        self.config = config or EfferoConfig.load()
+        self.event_bus = EventBus()
+        self.skills = skills or global_registry
+        self.working_memory = WorkingMemory()
+        self.episodic_memory = EpisodicMemory()
+        self.router = ModelRouter(self.config.agent.model)
+        self.safety: SafetyClient | None = None
+        if self.config.safety.enabled:
+            self.safety = SafetyClient(
+                host=self.config.safety.kernel_host,
+                port=self.config.safety.kernel_port,
+            )
+        self.planner = Planner(
+            router=self.router,
+            memory=self.working_memory,
+            skills=self.skills,
+            safety_client=self.safety,
+        )
+
+    async def run(self, instruction: str) -> str:
+        """Execute an instruction through the planner loop."""
+        logger.info(f"Agent '{self.config.agent.name}' processing: {instruction}")
+        result = await self.planner.run(instruction)
+        # Record to episodic memory
+        self.episodic_memory.record("interaction", {
+            "instruction": instruction,
+            "response": result,
+        })
+        return result
+
+    async def chat(self, message: str) -> str:
+        """Single-turn chat interface."""
+        return await self.run(message)
+
+    async def start(self) -> None:
+        """Start background services."""
+        if self.safety:
+            try:
+                await self.safety.connect()
+                logger.info("Connected to safety kernel")
+            except (ConnectionRefusedError, OSError) as e:
+                logger.warning(f"Safety kernel not running ({e}) — operating without guardrails")
+                self.safety = None
+                self.planner.safety = None
+        
+        # Load built-in skills
+        self._load_builtin_skills()
+        
+        logger.info(f"Agent '{self.config.agent.name}' started with {len(self.skills.list())} skills")
+
+    async def stop(self) -> None:
+        """Graceful shutdown."""
+        if self.safety:
+            await self.safety.close()
+        logger.info(f"Agent '{self.config.agent.name}' stopped")
+
+    def _load_builtin_skills(self) -> None:
+        """Import built-in skill modules to trigger @skill registration."""
+        skill_modules = [
+            "effero.skills.iot.lights",
+            "effero.skills.iot.thermostat",
+            "effero.skills.iot.sensors",
+            "effero.skills.computer_use.shell",
+            "effero.skills.computer_use.browser",
+            "effero.skills.computer_use.file_ops",
+            "effero.skills.robotics.arm",
+            "effero.skills.robotics.navigate",
+        ]
+        import importlib
+        for mod_name in skill_modules:
+            try:
+                importlib.import_module(mod_name)
+            except ImportError as e:
+                logger.debug(f"Could not load skill module {mod_name}: {e}")
 
     def available_skills(self) -> list[str]:
-        """List the names of every skill this agent can currently invoke."""
-        return self.skills.list()
-
-    def invoke_skill(self, name: str, /, **kwargs: Any) -> Any:
-        """Directly invoke a registered skill by name and record the step.
-
-        This bypasses planning and guardrail enforcement entirely -- it
-        exists as a low-level building block for tests and early
-        experimentation, not as the intended production call path.
-        """
-        spec = self.skills.get(name)
-        result = spec(**kwargs)
-        self.history.append(AgentStep(thought=f"invoke {name}", skill_name=name, result=result))
-        return result
+        """List names of all registered skills."""
+        return [s.name for s in self.skills.list()]

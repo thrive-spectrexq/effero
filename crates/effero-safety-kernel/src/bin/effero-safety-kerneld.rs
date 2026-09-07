@@ -18,12 +18,14 @@ use std::path::PathBuf;
 
 struct Args {
     policy: PathBuf,
-    socket: PathBuf,
+    host: String,
+    port: u16,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut policy = PathBuf::from("policies/example.yaml");
-    let mut socket = PathBuf::from("/tmp/effero-safety-kernel.sock");
+    let mut host = "127.0.0.1".to_string();
+    let mut port = 9400;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -31,13 +33,17 @@ fn parse_args() -> Result<Args, String> {
             "--policy" => {
                 policy = PathBuf::from(args.next().ok_or("--policy requires a value")?);
             }
-            "--socket" => {
-                socket = PathBuf::from(args.next().ok_or("--socket requires a value")?);
+            "--host" => {
+                host = args.next().ok_or("--host requires a value")?;
+            }
+            "--port" => {
+                let p = args.next().ok_or("--port requires a value")?;
+                port = p.parse().map_err(|_| format!("invalid port: {}", p))?;
             }
             "-h" | "--help" => {
                 println!(
-                    "effero-safety-kerneld [--policy <path>] [--socket <path>]\n\n\
-                     Defaults: --policy policies/example.yaml --socket /tmp/effero-safety-kernel.sock"
+                    "effero-safety-kerneld [--policy <path>] [--host <ip>] [--port <port>]\n\n\
+                     Defaults: --policy policies/example.yaml --host 127.0.0.1 --port 9400"
                 );
                 std::process::exit(0);
             }
@@ -45,7 +51,7 @@ fn parse_args() -> Result<Args, String> {
         }
     }
 
-    Ok(Args { policy, socket })
+    Ok(Args { policy, host, port })
 }
 
 #[tokio::main]
@@ -60,5 +66,5 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let engine = Engine::load(policy)?;
-    effero_safety_kernel::server::serve(engine, &args.socket).await
+    effero_safety_kernel::server::serve(engine, &args.host, args.port).await
 }

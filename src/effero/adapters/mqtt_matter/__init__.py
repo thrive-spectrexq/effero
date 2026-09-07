@@ -1,6 +1,6 @@
-"""MQTT / Matter / Zigbee / Thread bridge.
+"""MQTT Adapter module."""
+from __future__ import annotations
 
-Requires the optional `iot` extra (`pip install effero[iot]`). Intended
-to interoperate with an existing Home Assistant / Matter controller
-rather than reimplement device commissioning.
-"""
+from effero.adapters.mqtt_matter.client import MockMQTTAdapter, MQTTAdapter, get_default_client
+
+__all__ = ["MQTTAdapter", "MockMQTTAdapter", "get_default_client"]

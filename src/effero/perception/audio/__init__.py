@@ -1,7 +1,13 @@
-"""Audio pipeline: wake-word detection, VAD, ASR, and TTS adapters.
+"""Audio perception module."""
+from __future__ import annotations
 
-Placeholder module. Intended to speak the Wyoming protocol so Effero can
-plug into an existing local voice setup (e.g. a Wyoming satellite/mic)
-without reinventing audio transport. See top-level README's perception
-table for target backends (faster-whisper, Moonshine, Parakeet, Piper).
-"""
+from effero.perception.audio.asr import ASRBackend, TranscriptionResult
+from effero.perception.audio.pipeline import AudioPipeline
+from effero.perception.audio.tts import TTSBackend
+
+__all__ = [
+    "ASRBackend",
+    "TranscriptionResult",
+    "TTSBackend",
+    "AudioPipeline",
+]

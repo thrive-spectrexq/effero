@@ -1,9 +1,8 @@
-"""Working, episodic, and semantic memory for the Effero agent runtime.
+"""Memory sub-package for Effero."""
+from __future__ import annotations
 
-Placeholder module. A later milestone will add:
-- a working-memory ring buffer scoped to the current task,
-- an episodic transcript store,
-- and a semantic (vector) store for long-term recall.
+from effero.core.memory.episodic import EpisodicMemory
+from effero.core.memory.semantic import SemanticMemory
+from effero.core.memory.working import WorkingMemory
 
-See ROADMAP in the top-level README.
-"""
+__all__ = ["WorkingMemory", "EpisodicMemory", "SemanticMemory"]

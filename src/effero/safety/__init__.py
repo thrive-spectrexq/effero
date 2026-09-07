@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from effero.safety.client import SafetyClient
+
 
 class PolicyDecision(StrEnum):
     ALLOW = "allow"
@@ -23,3 +25,6 @@ class PolicyDecision(StrEnum):
 class GuardrailResult:
     decision: PolicyDecision
     reason: str
+
+
+__all__ = ["PolicyDecision", "GuardrailResult", "SafetyClient"]

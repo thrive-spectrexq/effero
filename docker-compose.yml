@@ -1,0 +1,13 @@
+services:
+  effero:
+    build: .
+    ports:
+      - "9400:9400"
+      - "8080:8080"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+    volumes:
+      - ./effero.yaml:/app/effero.yaml:ro
+    restart: unless-stopped

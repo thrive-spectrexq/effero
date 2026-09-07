@@ -1,17 +1,162 @@
-"""Effero command-line entry point.
-
-Real subcommands (`init`, `run`, `config`) will grow here across
-milestones -- see ROADMAP in the top-level README. For now this is a
-functional stub so `pip install -e .` gives you a working `effero`
-command to build on.
-"""
-
+"""Effero command-line entry point."""
 from __future__ import annotations
 
 import argparse
+import asyncio
+import json
+import logging
 import sys
+from pathlib import Path
 
 from effero import __version__
+
+
+def setup_logging():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+
+async def run_repl(config_path: str | None = None) -> None:
+    from effero.config import EfferoConfig
+    from effero.core.agent import Agent
+    
+    if config_path:
+        config = EfferoConfig.load(config_path)
+    else:
+        config = EfferoConfig.load()
+        
+    agent = Agent(config=config)
+    await agent.start()
+    
+    print(f"Effero {__version__} REPL. Type 'exit' to quit.")
+    try:
+        while True:
+            # Need sync input in async loop, this is simple but blocks
+            # Good enough for scaffold
+            try:
+                user_input = input(">> ")
+            except EOFError:
+                break
+                
+            if user_input.strip() in ("exit", "quit"):
+                break
+            if not user_input.strip():
+                continue
+                
+            response = await agent.chat(user_input)
+            print(f"\n{response}\n")
+    except KeyboardInterrupt:
+        print("\nExiting...")
+    finally:
+        await agent.stop()
+
+
+async def run_chat(message: str) -> None:
+    from effero.core.agent import Agent
+    
+    agent = Agent()
+    await agent.start()
+    try:
+        response = await agent.chat(message)
+        print(response)
+    finally:
+        await agent.stop()
+
+
+def init_project(name: str) -> None:
+    path = Path(name)
+    if path.exists():
+        print(f"Directory {name} already exists.")
+        raise FileExistsError(f"Directory {name} already exists.")
+
+    path.mkdir(parents=True)
+    project_name = path.name
+    yaml_content = f"""agent:
+  name: "{project_name}"
+  model:
+    backend: openai
+    model: gpt-4o
+safety:
+  enabled: false
+  kernel_host: "127.0.0.1"
+  kernel_port: 9400
+"""
+    (path / "effero.yaml").write_text(yaml_content)
+    print(f"Initialized Effero project in {name}/")
+    print(f"cd {name} and run `effero run`")
+
+
+def list_skills() -> None:
+    # Need to load skills first
+    import importlib
+
+    from effero.sdk.skill import registry
+    
+    skill_modules = [
+        "effero.skills.iot.lights",
+        "effero.skills.iot.thermostat",
+        "effero.skills.iot.sensors",
+        "effero.skills.computer_use.shell",
+        "effero.skills.computer_use.browser",
+        "effero.skills.computer_use.file_ops",
+        "effero.skills.robotics.arm",
+        "effero.skills.robotics.navigate",
+    ]
+    for mod_name in skill_modules:
+        try:
+            importlib.import_module(mod_name)
+        except ImportError:
+            pass
+            
+    for name in registry.list():
+        spec = registry.get(name)
+        print(f"- {name} [{spec.safety_class}]")
+        print(f"  {spec.description}")
+        print()
+
+
+async def serve_mcp() -> None:
+    import importlib
+
+    from effero.protocols.mcp_server import MCPServer
+    from effero.sdk.skill import registry
+    
+    skill_modules = [
+        "effero.skills.iot.lights",
+        "effero.skills.iot.thermostat",
+        "effero.skills.iot.sensors",
+        "effero.skills.computer_use.shell",
+        "effero.skills.computer_use.browser",
+        "effero.skills.computer_use.file_ops",
+        "effero.skills.robotics.arm",
+        "effero.skills.robotics.navigate",
+    ]
+    for mod_name in skill_modules:
+        try:
+            importlib.import_module(mod_name)
+        except ImportError:
+            pass
+            
+    server = MCPServer(registry)
+    
+    loop = asyncio.get_event_loop()
+    reader = asyncio.StreamReader()
+    protocol = asyncio.StreamReaderProtocol(reader)
+    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+    
+    try:
+        while True:
+            line = await reader.readline()
+            if not line:
+                break
+            try:
+                request = json.loads(line.decode())
+                response = await server.handle_request(request)
+                if response:
+                    print(json.dumps(response), flush=True)
+            except json.JSONDecodeError:
+                pass
+    except KeyboardInterrupt:
+        pass
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -19,13 +164,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"effero {__version__}")
 
     subparsers = parser.add_subparsers(dest="command")
-    subparsers.add_parser("init", help="Scaffold a new Effero project (not yet implemented)")
-    subparsers.add_parser("run", help="Run the Effero runtime (not yet implemented)")
-    subparsers.add_parser("config", help="Get/set runtime configuration (not yet implemented)")
+    
+    run_p = subparsers.add_parser("run", help="Start interactive REPL loop")
+    run_p.add_argument("--config", help="Path to config file")
+    
+    chat_p = subparsers.add_parser("chat", help="Send a single message")
+    chat_p.add_argument("message", help="Message to send")
+    
+    init_p = subparsers.add_parser("init", help="Scaffold a new Effero project")
+    init_p.add_argument("name", help="Project name")
+    
+    subparsers.add_parser("skills", help="List registered skills")
+    subparsers.add_parser("mcp-serve", help="Start as MCP server on stdio")
+    
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    setup_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -33,7 +189,17 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 0
 
-    print(f"'{args.command}' is not implemented yet -- see ROADMAP in the top-level README.")
+    if args.command == "run":
+        asyncio.run(run_repl(args.config))
+    elif args.command == "chat":
+        asyncio.run(run_chat(args.message))
+    elif args.command == "init":
+        init_project(args.name)
+    elif args.command == "skills":
+        list_skills()
+    elif args.command == "mcp-serve":
+        asyncio.run(serve_mcp())
+        
     return 0
 
 

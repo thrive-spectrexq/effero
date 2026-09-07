@@ -1,5 +1,10 @@
-"""Computer-use skills (open_app, click, type, read_screen, run_shell).
+"""Computer Use Skills module."""
+from __future__ import annotations
 
-Placeholder module -- see the effero.adapters.cloud_api / OS-level
-adapter notes in the top-level README.
-"""
+from effero.skills.computer_use.browser import open_url, screenshot
+from effero.skills.computer_use.file_ops import list_dir, read_file, write_file
+from effero.skills.computer_use.shell import run
+
+__all__ = [
+    "run", "open_url", "screenshot", "read_file", "write_file", "list_dir"
+]

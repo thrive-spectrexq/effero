@@ -8,3 +8,8 @@ section. Submodules:
 - planner  -- task decomposition and replanning
 - router   -- routes LLM calls to a local or cloud backend
 """
+
+from effero.core.event_bus import EventBus
+from effero.core.memory import EpisodicMemory, SemanticMemory, WorkingMemory
+
+__all__ = ["EventBus", "WorkingMemory", "EpisodicMemory", "SemanticMemory"]

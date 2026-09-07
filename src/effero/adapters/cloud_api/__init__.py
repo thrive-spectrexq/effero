@@ -1,3 +1,6 @@
-"""Generic REST / cloud API adapter for cloud-connected appliances and
-third-party services that don't warrant a dedicated bridge.
-"""
+"""Cloud API adapter module."""
+from __future__ import annotations
+
+from effero.adapters.cloud_api.client import CloudAPIAdapter
+
+__all__ = ["CloudAPIAdapter"]

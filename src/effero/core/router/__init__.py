@@ -1,23 +1,25 @@
-"""Routes a single LLM call to a local (llama.cpp / Ollama / vLLM) or
-cloud backend based on declared needs (latency, tool-calling reliability,
-multimodality).
-
-Placeholder module -- concrete backend adapters land in a later milestone.
-"""
-
+"""Model Router layer for Effero."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from effero.core.router.base import LLMBackend, LLMRequest, LLMResponse, ToolCall
+    from effero.core.router.router import ModelRouter
 
-@dataclass
-class ModelRoute:
-    """Describes where a single LLM call should be sent.
+__all__ = [
+    "LLMBackend",
+    "LLMRequest",
+    "LLMResponse",
+    "ModelRouter",
+    "ToolCall",
+]
 
-    This is intentionally minimal for now; it exists so other modules
-    have a stable type to import while the real router is built out.
-    """
-
-    backend: str
-    model: str
-    fallback: list[str] | None = None
+def __getattr__(name: str) -> Any:
+    if name in ("LLMBackend", "LLMRequest", "LLMResponse", "ToolCall"):
+        import effero.core.router.base as module
+        return getattr(module, name)
+    elif name == "ModelRouter":
+        import effero.core.router.router as module
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

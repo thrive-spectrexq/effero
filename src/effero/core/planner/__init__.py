@@ -1,6 +1,6 @@
-"""Task decomposition and replanning.
+"""Planner module re-exports."""
+from __future__ import annotations
 
-Placeholder module for the graph-based planning loop described in the
-project README. Real logic (LLM-driven decomposition, replanning on
-skill failure, etc.) lands in a later milestone.
-"""
+from effero.core.planner.planner import Planner
+
+__all__ = ["Planner"]

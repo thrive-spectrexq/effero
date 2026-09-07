@@ -1,8 +1,11 @@
-"""Vision pipeline: detection, segmentation, VLA grounding, and OCR
-adapters.
+"""Vision perception module."""
+from __future__ import annotations
 
-Placeholder module. Intended backends (see top-level README's
-perception table): YOLO-family detectors, CLIP/SigLIP grounding, and
-Vision-Language-Action policies (e.g. OpenVLA, SmolVLA, Octo) for
-embodied action.
-"""
+from effero.perception.vision.detector import Detection, DetectionBackend
+from effero.perception.vision.pipeline import VisionPipeline
+
+__all__ = [
+    "DetectionBackend",
+    "Detection",
+    "VisionPipeline",
+]

@@ -1,4 +1,6 @@
-"""Serial / GPIO / microcontroller bridge (Arduino, ESP32, raw GPIO).
+"""Serial adapter module."""
+from __future__ import annotations
 
-Placeholder module for a later milestone.
-"""
+from effero.adapters.serial_gpio.client import MockSerialAdapter, SerialAdapter
+
+__all__ = ["SerialAdapter", "MockSerialAdapter"]

@@ -67,57 +67,61 @@ Effero doesn't try to replace ROS 2, Home Assistant, or your favorite agent SDK 
 
 Effero is organized in six layers. Data flows up from perception, through cognition, back down through skills into the physical/digital world — with the safety layer able to intercept at every boundary.
 
-```mermaid
-flowchart TB
-    subgraph I["Interfaces"]
-        CLI[CLI / SDK]
-        Chat[Chat & Web Dashboard]
-        Voice[Wake-word / Voice Loop]
-        Mobile[Mobile App]
-    end
-
-    subgraph P["Perception Bus"]
-        Vision[Vision Pipeline\ndetection · segmentation · VLA · OCR]
-        Audio[Audio Pipeline\nwake-word · VAD · ASR · TTS]
-        Sensors[Sensor Fusion\nIMU · LiDAR · telemetry · odometry]
-    end
-
-    subgraph C["Cognition Core (Effero Runtime)"]
-        Orchestrator[Orchestrator / Planner\ngraph-based agent loop]
-        Memory[(Memory\nworking · episodic · semantic vector store)]
-        Router[Model Router\nlocal llama.cpp/Ollama/vLLM ⇄ cloud API]
-    end
-
-    subgraph S["Skill Layer (MCP-native)"]
-        Registry[Skill Registry]
-        Robotics[Robotics Skills]
-        IoT[IoT Skills]
-        Compute[Computer-use Skills]
-        Custom[Custom / Community Skills]
-    end
-
-    subgraph D["Device Abstraction Layer"]
-        ROS[ROS 2 Adapter]
-        MQTTM[MQTT / Matter / Zigbee / Thread]
-        Serial[Serial / GPIO / Arduino / ESP32]
-        CloudAPI[Generic REST / Cloud APIs]
-        OS[OS-level Control\nfiles · browser · input]
-    end
-
-    subgraph G["Safety & Governance"]
-        Guard[Runtime Guardrail Engine\npolicy-as-code]
-        HITL[Human-in-the-loop Approval]
-        Estop[Hardware E-Stop Hook]
-        Audit[Audit Log]
-    end
-
-    I <--> C
-    P --> C
-    C <--> S
-    S --> D
-    S <--> G
-    G -.intercepts.-> D
-    C <-. A2A .-> C
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             INTERFACES                                      │
+│   CLI / SDK          Chat & Web Dashboard       Voice Loop       Mobile     │
+└──────────┬──────────────────┬──────────────────────┬──────────────┬─────────┘
+           │                  │                      │              │
+           ▼                  ▼                      ▼              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          PERCEPTION BUS                                     │
+│                                                                             │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐     │
+│  │  Vision Pipeline │  │  Audio Pipeline  │  │     Sensor Fusion      │     │
+│  │  detection · seg │  │  wake-word · VAD │  │  IMU · LiDAR · telem  │     │
+│  │  VLA · OCR       │  │  ASR · TTS       │  │  odometry · env       │     │
+│  └──────────────────┘  └──────────────────┘  └────────────────────────┘     │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │ events
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COGNITION CORE  (Effero Runtime)                          │
+│                                                                             │
+│  ┌────────────────────┐  ┌──────────────┐  ┌────────────────────────────┐  │
+│  │   Orchestrator /   │  │    Memory     │  │       Model Router        │  │
+│  │      Planner       │  │              │  │                            │  │
+│  │  plan → act →      │  │  working     │  │  local llama.cpp / Ollama │  │
+│  │  observe → replan  │  │  episodic    │  │         ⇅                  │  │
+│  │                    │  │  semantic    │  │  cloud  OpenAI / Anthropic │  │
+│  └────────────────────┘  └──────────────┘  │         / Google           │  │
+│                                             └────────────────────────────┘  │
+│                               ◄── A2A ──►                                   │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      SKILL LAYER  (MCP-native)                              │
+│                                                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌────────────────────────┐  │
+│  │ Robotics │  │   IoT    │  │ Computer Use │  │  Custom / Community   │  │
+│  │  Skills  │  │  Skills  │  │    Skills     │  │       Skills          │  │
+│  └──────────┘  └──────────┘  └──────────────┘  └────────────────────────┘  │
+│                        ▲  Skill Registry  ▲                                 │
+└────────────────────────┼──────────────────┼─────────────────────────────────┘
+                         │                  │
+      ┌──────────────────┘                  └──────────────────┐
+      ▼                                                        ▼
+┌───────────────────────────────────────┐  ┌──────────────────────────────────┐
+│      DEVICE ABSTRACTION LAYER         │  │      SAFETY & GOVERNANCE         │
+│                                       │  │                                  │
+│  ROS 2 Adapter                        │  │  Runtime Guardrail Engine        │
+│  MQTT / Matter / Zigbee / Thread      │◄─┤  (policy-as-code, Rust kernel)   │
+│  Serial / GPIO / Arduino / ESP32      │  │                                  │
+│  Generic REST / Cloud APIs            │  │  Human-in-the-loop Approval      │
+│  OS Control (files · browser · input) │  │  Hardware E-Stop Hook            │
+│                                       │  │  Audit Log                       │
+└───────────────────────────────────────┘  └──────────────────────────────────┘
 ```
 
 ### Layer breakdown
@@ -319,24 +323,36 @@ This mirrors the direction of current robot-safety research: **safety guarantees
 
 ## Example Builds (`examples/`)
 
-- **`local-smart-home/`** — fully offline voice-controlled home automation: wake-word → faster-whisper → local LLM → Matter/MQTT devices → Piper TTS. No cloud dependency.
-- **`mobile-manipulator/`** — natural-language task planning over a ROS 2-connected mobile robot with a VLA-driven manipulation skill for pick-and-place.
-- **`desktop-copilot/`** — a computer-use agent that operates a desktop/browser on the user's behalf, gated behind `ACT_WITH_APPROVAL` for destructive actions.
-- **`industrial-monitor/`** — sensor-fusion anomaly detection across a fleet of IoT sensors, with agentic triage and human-approved actuation.
-- **`multi-robot-swarm/`** — two or more Effero instances coordinating over A2A to split a shared task.
+- **`local-smart-home/`** ✅ — voice-controlled home automation: wake-word → ASR → LLM → Matter/MQTT devices → TTS. Runs as an interactive REPL.
+- **`desktop-copilot/`** ✅ — a computer-use agent that operates shell, files, and browser on the user's behalf, gated behind `ACT_WITH_APPROVAL` for destructive actions.
+- **`mobile-manipulator/`** *(planned)* — natural-language task planning over a ROS 2-connected mobile robot with a VLA-driven manipulation skill for pick-and-place.
+- **`industrial-monitor/`** *(planned)* — sensor-fusion anomaly detection across a fleet of IoT sensors, with agentic triage and human-approved actuation.
+- **`multi-robot-swarm/`** *(planned)* — two or more Effero instances coordinating over A2A to split a shared task.
 
 ---
 
 ## Roadmap
 
-- **v0.1 — Foundation** *(in progress)*: core runtime, memory, model router, MCP skill layer, IoT adapter (MQTT/Matter), local voice pipeline (Wyoming-compatible).
+- **v0.1 — Foundation** *(current release)*: core runtime, memory, model router, MCP skill layer, adapters, local voice pipeline.
   - ✅ Repo scaffold, `@skill` decorator + registry, minimal `Agent`, packaging/CI, governance docs.
-  - ✅ `effero-safety-kernel` — built, unit-tested, run end-to-end (see Safety & Governance above).
-  - 🚧 `effero-edge-mcp` — written against the current `rmcp` API, first real compile still needed (see [`crates/effero-edge-mcp/README.md`](crates/effero-edge-mcp/README.md)).
-  - ⬜ Wire the safety kernel into `src/effero/safety/` as the default guardrail path; real orchestrator/planner/memory/router logic; MQTT/Matter and voice pipelines.
-- **v0.2 — Embodiment**: ROS 2 adapter, VLA skill runner, simulation-first safety promotion, computer-use adapter.
-- **v0.3 — Multi-agent**: A2A-based fleet coordination, shared memory/negotiation primitives, web dashboard.
-- **v1.0 — Hardened**: formalized policy DSL (including unifying the Python- and Rust-side condition grammars), third-party safety audit, certified reference hardware profiles (Raspberry Pi 5, Jetson Orin), stable skill SDK for community adapters.
+  - ✅ `effero-safety-kernel` — Rust guardrail engine with TCP transport, policy evaluation, unit-tested.
+  - ✅ Configuration system — YAML + env-var config with Pydantic validation (`EfferoConfig`).
+  - ✅ Async event bus — in-process pubsub with wildcard matching and bounded history.
+  - ✅ Memory system — working memory (bounded context), episodic memory (JSONL transcript), semantic memory (stub).
+  - ✅ Model router — OpenAI, Anthropic, Google backends with automatic fallback chain.
+  - ✅ Planner — LLM-driven plan/act/observe/replan loop with tool calling and safety checks.
+  - ✅ Perception pipelines — audio (ASR/TTS), vision (object detection), sensor polling — modular backends.
+  - ✅ Adapters — MQTT/Matter, Serial/GPIO, Cloud REST API, ROS 2 bridge.
+  - ✅ Built-in skills — IoT (lights, thermostat, sensors), computer-use (shell, browser, file ops), robotics (arm, navigate).
+  - ✅ MCP server — exposes all skills as MCP tools over stdio.
+  - ✅ A2A client — agent-to-agent communication stub.
+  - ✅ CLI — `effero run`, `effero chat`, `effero init`, `effero skills`, `effero mcp-serve`.
+  - ✅ Safety client — async TCP client bridging Python agent to Rust safety kernel.
+  - ✅ Docker multi-stage build (Rust kernel + Python runtime).
+  - 🚧 `effero-edge-mcp` — written against `rmcp` API, first real compile pending (see [`crates/effero-edge-mcp/README.md`](crates/effero-edge-mcp/README.md)).
+- **v0.2 — Embodiment**: ROS 2 live adapter testing, VLA skill runner, simulation-first safety promotion, computer-use browser automation, semantic memory with vector store, interactive safety approval, Wyoming protocol voice integration.
+- **v0.3 — Multi-agent**: A2A-based fleet coordination, shared memory/negotiation primitives, web dashboard, real-time streaming audio/video.
+- **v1.0 — Hardened**: formalized policy DSL (unifying Python- and Rust-side condition grammars), third-party safety audit, certified reference hardware profiles (Raspberry Pi 5, Jetson Orin), stable skill SDK for community adapters.
 
 ---
 

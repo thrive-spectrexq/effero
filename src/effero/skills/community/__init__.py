@@ -1,5 +1,5 @@
-"""Home for third-party / community-contributed skills.
+"""Community contributed skills.
 
-New skills default to SafetyClass.ACT_RESTRICTED (simulation/dry-run)
-until a maintainer or operator promotes them. See CONTRIBUTING.md.
+This package is a stub for future community skills.
 """
+from __future__ import annotations

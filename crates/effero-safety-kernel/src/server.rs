@@ -12,10 +12,9 @@
 use crate::condition::{Fact, Facts};
 use crate::engine::{Engine, GuardrailResult};
 use serde::Deserialize;
-use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::{TcpListener, TcpStream};
 
 #[derive(Debug, Deserialize)]
 struct Request {
@@ -40,13 +39,11 @@ impl From<RequestFact> for Fact {
     }
 }
 
-pub async fn serve(engine: Engine, socket_path: &Path) -> anyhow::Result<()> {
-    // Best-effort cleanup of a stale socket file from a previous run.
-    let _ = std::fs::remove_file(socket_path);
-
-    let listener = UnixListener::bind(socket_path)?;
+pub async fn serve(engine: Engine, host: &str, port: u16) -> anyhow::Result<()> {
+    let addr = format!("{}:{}", host, port);
+    let listener = TcpListener::bind(&addr).await?;
     let engine = Arc::new(engine);
-    eprintln!("[effero-safety-kerneld] listening on {}", socket_path.display());
+    eprintln!("[effero-safety-kerneld] listening on {}", addr);
 
     loop {
         let (stream, _addr) = listener.accept().await?;
@@ -59,8 +56,8 @@ pub async fn serve(engine: Engine, socket_path: &Path) -> anyhow::Result<()> {
     }
 }
 
-async fn handle_connection(stream: UnixStream, engine: &Engine) -> anyhow::Result<()> {
-    let (read_half, mut write_half) = stream.into_split();
+async fn handle_connection(mut stream: TcpStream, engine: &Engine) -> anyhow::Result<()> {
+    let (read_half, mut write_half) = stream.split();
     let mut lines = BufReader::new(read_half).lines();
 
     while let Some(line) = lines.next_line().await? {

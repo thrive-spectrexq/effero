@@ -1,5 +1,10 @@
-"""Generic sensor fusion: IMU, LiDAR, odometry, and IoT telemetry.
+"""Sensor perception module."""
+from __future__ import annotations
 
-Placeholder module for normalizing heterogeneous sensor streams into
-events on the shared perception bus.
-"""
+from effero.perception.sensors.pipeline import SensorBackend, SensorPipeline, SensorReading
+
+__all__ = [
+    "SensorBackend",
+    "SensorReading",
+    "SensorPipeline",
+]

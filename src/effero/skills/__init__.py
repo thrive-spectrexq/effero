@@ -1,10 +1,14 @@
-"""Skill layer: MCP-native tool definitions.
+"""Effero Skills package.
 
-Every capability the agent can invoke is registered here as a Skill (see
-effero.sdk.skill). Submodules group skills by domain:
-
-- robotics
-- iot
-- computer_use
-- community
+This package contains built-in skills for IoT, computer use, and robotics.
 """
+from __future__ import annotations
+
+import effero.skills.community
+import effero.skills.computer_use
+import effero.skills.iot
+import effero.skills.robotics
+
+__all__ = [
+    "iot", "computer_use", "robotics", "community"
+]
