@@ -8,6 +8,7 @@ By participating in this project you agree to abide by our [Code of Conduct](COD
 
 - **New skills** (`src/effero/skills/`) — the easiest entry point. A skill is a small, testable function wrapped in `@skill(...)` (see `src/effero/sdk/skill.py` and the Quickstart in `README.md`).
 - **New adapters** (`src/effero/adapters/`) — a new IoT protocol, robot middleware, or microcontroller board.
+- **The Rust crates** (`crates/`) — the safety-kernel engine and the embedded MCP server template. See [`crates/README.md`](crates/README.md); `effero-edge-mcp` in particular needs someone to confirm it actually compiles on a modern toolchain (see that crate's README) — a great first Rust contribution.
 - **New perception backends** (`src/effero/perception/`) — support for an ASR/TTS/vision/VLA model not yet wired in.
 - **Safety policy review** (`src/effero/safety/`) — Effero touches physical hardware; extra scrutiny here is always welcome, even just review comments on a PR.
 - **Docs and examples** (`docs/`, `examples/`) — a new worked example is often more valuable than a core-code PR.
@@ -32,6 +33,21 @@ Optional extras (`voice`, `vision`, `ros2`, `iot`) pull in the corresponding hea
 ```bash
 pip install -e ".[dev,voice]"
 ```
+
+### Rust crates
+
+The `crates/` workspace (safety kernel + edge MCP server) needs Rust
+1.85+ (Rust 2024 edition). `rust-toolchain.toml` at the repo root pins
+`channel = "stable"`, so `rustup` fetches the right version automatically:
+
+```bash
+cargo build --workspace
+cargo test --workspace
+```
+
+See [`crates/README.md`](crates/README.md) for the status of each crate
+before you start — one builds and is tested, the other needs its first
+real compile.
 
 ### Running checks locally
 

@@ -39,3 +39,31 @@ jobs:
 
       - name: Run tests
         run: pytest --cov=effero --cov-report=term-missing
+
+  rust:
+    name: rust (${{ matrix.crate }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate: [effero-safety-kernel, effero-edge-mcp]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Build
+        run: cargo build -p ${{ matrix.crate }}
+
+      - name: Test
+        run: cargo test -p ${{ matrix.crate }}
+
+      - name: Clippy
+        run: cargo clippy -p ${{ matrix.crate }} -- -D warnings
+        continue-on-error: true # tighten once effero-edge-mcp has a confirmed-working build

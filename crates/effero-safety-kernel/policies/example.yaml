@@ -1,0 +1,39 @@
+# Example policy for effero-safety-kernel.
+#
+# This is the Rust crate's self-contained example (used by the daemon's
+# default `--policy` path and referenced in tests/README). It mirrors the
+# spirit of `src/effero/safety/policies/example.yaml` on the Python side,
+# but uses this crate's flat-fact condition grammar (see src/condition.rs)
+# and evalexpr's operator syntax (`&&`, `||`, not `and`/`or`).
+
+version: 1
+
+rules:
+  - id: no-exterior-unlock-at-night
+    description: >-
+      Never unlock an exterior door between 23:00 and 06:00 without
+      explicit human approval.
+    applies_to: ["iot.locks.*"]
+    condition: "time_hour >= 23 || time_hour < 6"
+    action: require_approval
+
+  - id: manipulator-speed-near-humans
+    description: >-
+      Limit end-effector speed whenever a person is detected within
+      1 meter of the robot.
+    applies_to: ["robotics.arm_*", "robotics.navigate"]
+    condition: "nearest_person_distance_m < 1.0"
+    action: limit
+    limit:
+      max_speed_mps: 0.5
+
+  - id: sensor-reads-are-always-safe
+    description: "Read-only sensor queries never touch the physical world."
+    applies_to: ["iot.sensors.read_*", "robotics.*.read_*"]
+    condition: "true"
+    action: allow
+
+# Fallback for any skill not matched by a rule above: fail safe by
+# requiring a human in the loop rather than silently allowing it.
+defaults:
+  unknown_skill_action: require_approval

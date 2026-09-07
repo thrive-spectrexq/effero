@@ -43,3 +43,12 @@ models/
 # Logs and local runtime state
 *.log
 .effero/
+
+# Rust
+/target/
+**/target/
+# Cargo.lock is intentionally not committed yet -- see crates/README.md
+# (it was generated on a toolchain too old to fully resolve the
+# workspace). Remove this line once a valid one is committed from a
+# Rust 1.85+ build.
+Cargo.lock
