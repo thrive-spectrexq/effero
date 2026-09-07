@@ -107,7 +107,13 @@ class ArmController:
 
     def __init__(self, model: ArmKinematicModel | None = None):
         self.model = model or ArmKinematicModel()
-        self.current_joints = JointConfiguration()
+        # Default ready-pose: centered in workspace away from singularities
+        self.current_joints = JointConfiguration(
+            base=0.0,
+            shoulder=math.radians(45.0),
+            elbow=math.radians(-90.0),
+            wrist=math.radians(45.0),
+        )
         self.gripper_open = True
         self.velocity_limit_rad_s = 1.5
 
@@ -156,8 +162,13 @@ class ArmController:
         }
 
     def home(self) -> dict[str, Any]:
-        """Return all joints to calibrated zero home position."""
-        self.current_joints = JointConfiguration(0.0, 0.0, 0.0, 0.0)
+        """Return all joints to calibrated ready home position."""
+        self.current_joints = JointConfiguration(
+            base=0.0,
+            shoulder=math.radians(45.0),
+            elbow=math.radians(-90.0),
+            wrist=math.radians(45.0),
+        )
         self.gripper_open = True
         pos = self.current_position
         return {

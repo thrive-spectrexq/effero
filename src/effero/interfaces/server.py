@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from effero import __version__
@@ -134,6 +135,14 @@ def create_app(agent: Agent | None = None) -> FastAPI:
         await agent.stop()
 
     app.router.lifespan_context = lifespan
+
+    @app.get("/", response_class=HTMLResponse)
+    async def get_dashboard():
+        from pathlib import Path
+        html_file = Path(__file__).parent / "static" / "index.html"
+        if html_file.exists():
+            return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
+        return HTMLResponse(content="<h1>Effero Agent Runtime</h1>")
 
     @app.get("/health")
     async def health():

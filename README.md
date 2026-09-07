@@ -318,32 +318,8 @@ This mirrors the direction of current robot-safety research: **safety guarantees
 
 ---
 
-## Roadmap
-
-- **v0.1 — Foundation** *(current release)*: core runtime, memory, model router, MCP skill layer, adapters, local voice pipeline.
-  - ✅ Repo scaffold, `@skill` decorator + registry, minimal `Agent`, packaging/CI, governance docs.
-  - ✅ `effero-safety-kernel` — Rust guardrail engine with TCP transport, policy evaluation, unit-tested.
-  - ✅ Configuration system — YAML + env-var config with Pydantic validation (`EfferoConfig`).
-  - ✅ Async event bus — in-process pubsub with wildcard matching and bounded history.
-  - ✅ Memory system — working memory (bounded context), episodic memory (JSONL transcript), semantic memory (stub).
-  - ✅ Model router — OpenAI, Anthropic, Google backends with automatic fallback chain.
-  - ✅ Planner — LLM-driven plan/act/observe/replan loop with tool calling and safety checks.
-  - ✅ Perception pipelines — audio (ASR/TTS), vision (object detection), sensor polling — modular backends.
-  - ✅ Adapters — MQTT/Matter, Serial/GPIO, Cloud REST API, ROS 2 bridge.
-  - ✅ Built-in skills — IoT (lights, thermostat, sensors), computer-use (shell, browser, file ops), robotics (arm, navigate).
-  - ✅ MCP server — exposes all skills as MCP tools over stdio.
-  - ✅ A2A client — agent-to-agent communication stub.
-  - ✅ CLI — `effero run`, `effero chat`, `effero init`, `effero skills`, `effero mcp-serve`.
-  - ✅ Safety client — async TCP client bridging Python agent to Rust safety kernel.
-  - ✅ Docker multi-stage build (Rust kernel + Python runtime).
-  - ✅ `effero-edge-mcp` — compiled and verified against `rmcp` v3.2.0 (see [`crates/effero-edge-mcp/README.md`](crates/effero-edge-mcp/README.md)).
-- **v0.2 — Embodiment**: ROS 2 live adapter testing, VLA skill runner, simulation-first safety promotion, computer-use browser automation, semantic memory with vector store, interactive safety approval, Wyoming protocol voice integration.
-- **v0.3 — Multi-agent**: A2A-based fleet coordination, shared memory/negotiation primitives, web dashboard, real-time streaming audio/video.
-- **v1.0 — Hardened**: formalized policy DSL (unifying Python- and Rust-side condition grammars), third-party safety audit, certified reference hardware profiles (Raspberry Pi 5, Jetson Orin), stable skill SDK for community adapters.
-
----
-
 ## Contributing
+
 
 Effero is community-built from day one. Good places to start:
 

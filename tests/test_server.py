@@ -17,6 +17,13 @@ def api_client():
         yield client, agent
 
 
+def test_dashboard_endpoint(api_client) -> None:
+    client, _ = api_client
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "Effero" in resp.text
+
+
 def test_health_endpoint(api_client) -> None:
     client, _ = api_client
     resp = client.get("/health")
