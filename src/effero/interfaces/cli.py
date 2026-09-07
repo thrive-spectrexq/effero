@@ -1,4 +1,5 @@
 """Effero command-line entry point."""
+
 from __future__ import annotations
 
 import argparse
@@ -18,15 +19,15 @@ def setup_logging():
 async def run_repl(config_path: str | None = None) -> None:
     from effero.config import EfferoConfig
     from effero.core.agent import Agent
-    
+
     if config_path:
         config = EfferoConfig.load(config_path)
     else:
         config = EfferoConfig.load()
-        
+
     agent = Agent(config=config)
     await agent.start()
-    
+
     print(f"Effero {__version__} REPL. Type 'exit' to quit.")
     try:
         while True:
@@ -36,12 +37,12 @@ async def run_repl(config_path: str | None = None) -> None:
                 user_input = input(">> ")
             except EOFError:
                 break
-                
+
             if user_input.strip() in ("exit", "quit"):
                 break
             if not user_input.strip():
                 continue
-                
+
             response = await agent.chat(user_input)
             print(f"\n{response}\n")
     except KeyboardInterrupt:
@@ -52,7 +53,7 @@ async def run_repl(config_path: str | None = None) -> None:
 
 async def run_chat(message: str) -> None:
     from effero.core.agent import Agent
-    
+
     agent = Agent()
     await agent.start()
     try:
@@ -90,7 +91,7 @@ def list_skills() -> None:
     import importlib
 
     from effero.sdk.skill import registry
-    
+
     skill_modules = [
         "effero.skills.iot.lights",
         "effero.skills.iot.thermostat",
@@ -106,7 +107,7 @@ def list_skills() -> None:
             importlib.import_module(mod_name)
         except ImportError:
             pass
-            
+
     for name in registry.list():
         spec = registry.get(name)
         print(f"- {name} [{spec.safety_class}]")
@@ -119,7 +120,7 @@ async def serve_mcp() -> None:
 
     from effero.protocols.mcp_server import MCPServer
     from effero.sdk.skill import registry
-    
+
     skill_modules = [
         "effero.skills.iot.lights",
         "effero.skills.iot.thermostat",
@@ -135,14 +136,14 @@ async def serve_mcp() -> None:
             importlib.import_module(mod_name)
         except ImportError:
             pass
-            
+
     server = MCPServer(registry)
-    
+
     loop = asyncio.get_event_loop()
     reader = asyncio.StreamReader()
     protocol = asyncio.StreamReaderProtocol(reader)
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
-    
+
     try:
         while True:
             line = await reader.readline()
@@ -164,23 +165,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"effero {__version__}")
 
     subparsers = parser.add_subparsers(dest="command")
-    
+
     run_p = subparsers.add_parser("run", help="Start interactive REPL loop")
     run_p.add_argument("--config", help="Path to config file")
-    
+
     chat_p = subparsers.add_parser("chat", help="Send a single message")
     chat_p.add_argument("message", help="Message to send")
-    
+
     init_p = subparsers.add_parser("init", help="Scaffold a new Effero project")
     init_p.add_argument("name", help="Project name")
-    
+
     subparsers.add_parser("skills", help="List registered skills")
     subparsers.add_parser("mcp-serve", help="Start as MCP server on stdio")
 
     serve_p = subparsers.add_parser("serve", help="Start HTTP & WebSocket API server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Host to bind server (default: 0.0.0.0)")
     serve_p.add_argument("--port", type=int, default=8000, help="Port to bind server (default: 8000)")
-    
+
     return parser
 
 
@@ -205,10 +206,12 @@ def main(argv: list[str] | None = None) -> int:
         asyncio.run(serve_mcp())
     elif args.command == "serve":
         import uvicorn
+
         from effero.interfaces.server import create_app
+
         app = create_app()
         uvicorn.run(app, host=args.host, port=args.port)
-        
+
     return 0
 
 

@@ -1,4 +1,5 @@
 """Model router for Effero."""
+
 from __future__ import annotations
 
 import logging
@@ -15,7 +16,7 @@ class ModelRouter:
     def __init__(self, config: ModelConfig) -> None:
         self.config = config
         self.backends: list[LLMBackend] = []
-        
+
         # Primary backend
         primary = self._create_backend(config.backend, config.model, config)
         self.backends.append(primary)
@@ -34,13 +35,13 @@ class ModelRouter:
         """Send request trying primary and fallbacks in order."""
         errors = []
 
-        for i, backend in enumerate(self.backends):
+        for _i, backend in enumerate(self.backends):
             backend_name = backend.__class__.__name__
-            
+
             if not await backend.is_available():
                 errors.append(f"{backend_name} is not available (check installed packages and API keys).")
                 continue
-                
+
             try:
                 logger.debug(f"Attempting completion with {backend_name}")
                 response = await backend.complete(request)
@@ -49,7 +50,7 @@ class ModelRouter:
                 msg = f"{backend_name} error: {e}"
                 logger.warning(msg)
                 errors.append(msg)
-                
+
         # If we got here, all backends failed
         error_msgs = "\n".join(f" - {err}" for err in errors)
         raise RuntimeError(f"All LLM backends failed:\n{error_msgs}")
@@ -58,19 +59,22 @@ class ModelRouter:
     def _create_backend(provider: str, model: str, config: ModelConfig) -> LLMBackend:
         """Factory method to create backend instances."""
         provider = provider.lower()
-        
+
         if provider == "openai":
             from effero.core.router.openai_backend import OpenAIBackend
+
             # You might want to extract base_url or other settings from config here if available
             return OpenAIBackend(model=model)
-            
+
         elif provider == "anthropic":
             from effero.core.router.anthropic_backend import AnthropicBackend
+
             return AnthropicBackend(model=model)
-            
+
         elif provider in ("google", "gemini"):
             from effero.core.router.google_backend import GoogleBackend
+
             return GoogleBackend(model=model)
-            
+
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

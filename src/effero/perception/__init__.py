@@ -1,4 +1,5 @@
 """Effero Perception Layer."""
+
 from __future__ import annotations
 
 # Use lazy imports or direct imports depending on structure

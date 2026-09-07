@@ -1,4 +1,5 @@
 """Base interface for LLM backends."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -9,6 +10,7 @@ from typing import Any
 @dataclass
 class LLMRequest:
     """A request to an LLM backend."""
+
     messages: list[dict[str, Any]]
     tools: list[dict[str, Any]] | None = None
     temperature: float = 0.7
@@ -19,6 +21,7 @@ class LLMRequest:
 @dataclass
 class ToolCall:
     """A tool call returned by the LLM."""
+
     id: str
     name: str
     arguments: dict[str, Any]
@@ -27,6 +30,7 @@ class ToolCall:
 @dataclass
 class LLMResponse:
     """A response from an LLM backend."""
+
     content: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
     usage: dict[str, int] = field(default_factory=dict)

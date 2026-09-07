@@ -1,4 +1,5 @@
 """Thermostat skills."""
+
 from __future__ import annotations
 
 from effero.adapters.mqtt_matter.client import get_default_client
@@ -15,6 +16,7 @@ async def set_temperature(device_id: str, temperature: float) -> dict:
     await client.publish(f"home/thermostat/{device_id}/set_temp", {"temperature": temperature})
     return {"status": "success", "device_id": device_id, "temperature": temperature}
 
+
 @skill(
     name="iot.thermostat.get_temperature",
     description="Read current temperature",
@@ -26,8 +28,9 @@ async def get_temperature(device_id: str) -> dict:
     return {
         "status": "success",
         "device_id": device_id,
-        "temperature": state.get(f"home/thermostat/{device_id}/current_temp", 22.0)
+        "temperature": state.get(f"home/thermostat/{device_id}/current_temp", 22.0),
     }
+
 
 @skill(
     name="iot.thermostat.set_mode",

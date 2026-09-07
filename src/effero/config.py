@@ -1,4 +1,5 @@
 """Effero configuration system — parses effero.yaml into typed models."""
+
 from __future__ import annotations
 
 import os

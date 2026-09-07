@@ -1,4 +1,5 @@
 """Robotics Skills module."""
+
 from __future__ import annotations
 
 from effero.skills.robotics.arm import home, move_to, pick_place, set_gripper

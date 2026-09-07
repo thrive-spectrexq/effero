@@ -1,17 +1,17 @@
 """Semantic vector memory module for Effero."""
+
 from __future__ import annotations
 
 import json
 import logging
 import math
-import os
 import time
 import uuid
 from abc import ABC, abstractmethod
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -158,10 +158,7 @@ class SemanticMemory:
 
         for record in self._records.values():
             if filter_metadata:
-                match = all(
-                    record.metadata.get(k) == v
-                    for k, v in filter_metadata.items()
-                )
+                match = all(record.metadata.get(k) == v for k, v in filter_metadata.items())
                 if not match:
                     continue
 
@@ -221,9 +218,6 @@ class SemanticMemory:
         try:
             content = target.read_text(encoding="utf-8")
             data = json.loads(content)
-            self._records = {
-                item["id"]: MemoryRecord.from_dict(item)
-                for item in data
-            }
+            self._records = {item["id"]: MemoryRecord.from_dict(item) for item in data}
         except Exception as e:
             logger.error(f"Failed to load semantic memory from {target}: {e}")

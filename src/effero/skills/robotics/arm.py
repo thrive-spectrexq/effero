@@ -1,9 +1,10 @@
 """Robotics arm motion planning and kinematics execution skills."""
+
 from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from effero.sdk.skill import SafetyClass, skill
@@ -15,10 +16,10 @@ logger = logging.getLogger(__name__)
 class JointConfiguration:
     """Robot arm joint angles in radians."""
 
-    base: float = 0.0      # q1 (yaw)
+    base: float = 0.0  # q1 (yaw)
     shoulder: float = 0.0  # q2 (pitch)
-    elbow: float = 0.0     # q3 (pitch)
-    wrist: float = 0.0     # q4 (pitch)
+    elbow: float = 0.0  # q3 (pitch)
+    wrist: float = 0.0  # q4 (pitch)
 
     def to_degrees(self) -> dict[str, float]:
         return {
@@ -121,9 +122,7 @@ class ArmController:
     def current_position(self) -> tuple[float, float, float]:
         return self.model.forward_kinematics(self.current_joints)
 
-    def move_to_cartesian(
-        self, x: float, y: float, z: float, pitch: float = 0.0
-    ) -> dict[str, Any]:
+    def move_to_cartesian(self, x: float, y: float, z: float, pitch: float = 0.0) -> dict[str, Any]:
         """Plan and execute joint trajectory to Cartesian target."""
         target_joints = self.model.inverse_kinematics(x, y, z, pitch)
 
@@ -141,9 +140,7 @@ class ArmController:
         self.current_joints = target_joints
         new_pos = self.current_position
 
-        logger.info(
-            f"Arm moved from {prev_pos} to {new_pos} (duration: {duration:.2f}s)"
-        )
+        logger.info(f"Arm moved from {prev_pos} to {new_pos} (duration: {duration:.2f}s)")
         return {
             "status": "success",
             "position": {"x": new_pos[0], "y": new_pos[1], "z": new_pos[2]},

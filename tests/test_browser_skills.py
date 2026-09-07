@@ -1,17 +1,8 @@
 """Tests for Browser Automation Skill registry contracts."""
+
 from __future__ import annotations
 
-import pytest
-
 from effero.sdk.skill import SafetyClass, registry
-from effero.skills.computer_use.browser import (
-    click,
-    close,
-    get_text,
-    open_url,
-    screenshot,
-    type_text,
-)
 
 
 def test_browser_skills_registration() -> None:

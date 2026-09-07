@@ -1,13 +1,13 @@
 """Tests for real kinematics and trajectory planning in robotics skills."""
+
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from effero.skills.robotics.arm import (
-    ArmController,
     ArmKinematicModel,
-    JointConfiguration,
     home,
     move_to,
     pick_place,
@@ -15,9 +15,7 @@ from effero.skills.robotics.arm import (
 )
 from effero.skills.robotics.navigate import (
     NavigationController,
-    Pose2D,
     get_position,
-    go_to,
     go_to_coords,
     stop,
 )

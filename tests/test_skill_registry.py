@@ -1,4 +1,5 @@
 """Tests for skill registration, lookup, and the @skill decorator."""
+
 from __future__ import annotations
 
 import functools
@@ -15,10 +16,10 @@ def make_registry() -> SkillRegistry:
 
 def test_skill_registration_and_direct_call() -> None:
     reg = make_registry()
-    
+
     def echo_fn(value: str) -> str:
         return value
-    
+
     spec = SkillSpec(
         name="test.echo",
         description="Echo a value back.",

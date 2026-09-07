@@ -1,4 +1,5 @@
 """REST API adapter implementation."""
+
 from __future__ import annotations
 
 import logging
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import httpx
+
     HAS_HTTPX = True
 except ImportError:
     HAS_HTTPX = False
@@ -30,7 +32,7 @@ class CloudAPIAdapter(DeviceAdapter):
         if not HAS_HTTPX:
             logger.warning("httpx not installed — running cloud API in mock mode")
             return
-            
+
         self._client = httpx.AsyncClient(base_url=self.base_url, headers=self.headers)
         logger.info(f"Cloud API client initialized for {self.base_url}")
 
@@ -44,7 +46,7 @@ class CloudAPIAdapter(DeviceAdapter):
         method = params.get("method", "POST").upper()
         endpoint = params.get("endpoint", "")
         payload = params.get("payload")
-        
+
         if self._client:
             response = await self._client.request(method, endpoint, json=payload)
             response.raise_for_status()

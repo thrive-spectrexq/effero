@@ -1,7 +1,7 @@
 """Tests for Wyoming Voice Protocol implementation."""
+
 from __future__ import annotations
 
-import asyncio
 import pytest
 
 from effero.protocols.wyoming import (

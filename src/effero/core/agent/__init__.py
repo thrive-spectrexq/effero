@@ -1,9 +1,8 @@
 """The Agent — wires together all Effero subsystems."""
+
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Any
 
 from effero.config import EfferoConfig
 from effero.core.event_bus import EventBus
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class Agent:
     """The top-level Effero agent.
-    
+
     Wires together: config, event bus, skills, memory, model router,
     safety client, planner, and perception pipelines.
     """
@@ -50,9 +49,11 @@ class Agent:
             self.approval_handler = approval_handler
         elif self.config.safety.approval_mode == "auto":
             from effero.safety.approval import AutoApprovalHandler
+
             self.approval_handler = AutoApprovalHandler(approve_all=True)
         else:
             from effero.safety.approval import ConsoleApprovalHandler
+
             self.approval_handler = ConsoleApprovalHandler()
 
         self.planner = Planner(
@@ -68,10 +69,13 @@ class Agent:
         logger.info(f"Agent '{self.config.agent.name}' processing: {instruction}")
         result = await self.planner.run(instruction)
         # Record to episodic memory
-        self.episodic_memory.record("interaction", {
-            "instruction": instruction,
-            "response": result,
-        })
+        self.episodic_memory.record(
+            "interaction",
+            {
+                "instruction": instruction,
+                "response": result,
+            },
+        )
         return result
 
     async def chat(self, message: str) -> str:
@@ -88,10 +92,10 @@ class Agent:
                 logger.warning(f"Safety kernel not running ({e}) — operating without guardrails")
                 self.safety = None
                 self.planner.safety = None
-        
+
         # Load built-in skills
         self._load_builtin_skills()
-        
+
         logger.info(f"Agent '{self.config.agent.name}' started with {len(self.skills.list())} skills")
 
     async def stop(self) -> None:
@@ -113,6 +117,7 @@ class Agent:
             "effero.skills.robotics.navigate",
         ]
         import importlib
+
         for mod_name in skill_modules:
             try:
                 importlib.import_module(mod_name)

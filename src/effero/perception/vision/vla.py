@@ -1,9 +1,10 @@
 """Vision-Language-Action (VLA) execution pipeline for embodied robotic manipulation."""
+
 from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from PIL import Image
@@ -18,13 +19,13 @@ logger = logging.getLogger(__name__)
 class VLAAction:
     """A 7-DOF continuous robotic action chunk predicted by a VLA model."""
 
-    dx: float = 0.0          # delta x in meters
-    dy: float = 0.0          # delta y in meters
-    dz: float = 0.0          # delta z in meters
-    droll: float = 0.0       # delta roll in radians
-    dpitch: float = 0.0      # delta pitch in radians
-    dyaw: float = 0.0        # delta yaw in radians
-    gripper: float = 1.0     # 1.0 = open, -1.0 = close
+    dx: float = 0.0  # delta x in meters
+    dy: float = 0.0  # delta y in meters
+    dz: float = 0.0  # delta z in meters
+    droll: float = 0.0  # delta roll in radians
+    dpitch: float = 0.0  # delta pitch in radians
+    dyaw: float = 0.0  # delta yaw in radians
+    gripper: float = 1.0  # 1.0 = open, -1.0 = close
     confidence: float = 1.0
 
     def to_dict(self) -> dict[str, Any]:

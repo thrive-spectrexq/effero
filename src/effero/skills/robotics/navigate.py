@@ -1,9 +1,10 @@
 """Robot mobile base navigation, waypoint tracking, and differential drive kinematics."""
+
 from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from effero.sdk.skill import SafetyClass, skill
@@ -15,9 +16,9 @@ logger = logging.getLogger(__name__)
 class Pose2D:
     """2D planar pose of a mobile robot."""
 
-    x: float = 0.0      # meters
-    y: float = 0.0      # meters
-    yaw: float = 0.0    # radians
+    x: float = 0.0  # meters
+    y: float = 0.0  # meters
+    yaw: float = 0.0  # radians
 
     def to_dict(self) -> dict[str, float]:
         return {
@@ -46,8 +47,8 @@ class NavigationController:
         self.pose = Pose2D(0.0, 0.0, 0.0)
         self.linear_velocity_mps: float = 0.0
         self.angular_velocity_radps: float = 0.0
-        self.max_linear_velocity: float = 0.8    # m/s
-        self.max_angular_velocity: float = 1.2   # rad/s
+        self.max_linear_velocity: float = 0.8  # m/s
+        self.max_angular_velocity: float = 1.2  # rad/s
         self.total_odometry_distance: float = 0.0
         self.emergency_stopped: bool = False
 
@@ -64,9 +65,7 @@ class NavigationController:
         """Register a new named coordinate in the map."""
         self.waypoints[name] = Waypoint(name=name, x=x, y=y, yaw_degrees=yaw_deg)
 
-    def navigate_to_coordinates(
-        self, target_x: float, target_y: float, target_yaw_deg: float = 0.0
-    ) -> dict[str, Any]:
+    def navigate_to_coordinates(self, target_x: float, target_y: float, target_yaw_deg: float = 0.0) -> dict[str, Any]:
         """Plan and execute trajectory to Cartesian coordinates."""
         if self.emergency_stopped:
             return {

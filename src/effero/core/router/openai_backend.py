@@ -1,4 +1,5 @@
 """OpenAI backend implementation."""
+
 from __future__ import annotations
 
 import json
@@ -50,7 +51,7 @@ class OpenAIBackend(LLMBackend):
             raise RuntimeError(f"OpenAI API error: {e}") from e
 
         choice = response.choices[0]
-        
+
         tool_calls = []
         if choice.message.tool_calls:
             for tc in choice.message.tool_calls:
@@ -89,6 +90,7 @@ class OpenAIBackend(LLMBackend):
         """Check if this backend is reachable and configured."""
         try:
             import openai
+
             return bool(self.api_key)
         except ImportError:
             return False

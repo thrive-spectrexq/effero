@@ -1,4 +1,5 @@
 """Tests for Planner."""
+
 from __future__ import annotations
 
 import functools
@@ -61,15 +62,17 @@ async def test_simple_text_response() -> None:
 @pytest.mark.asyncio
 async def test_tool_call_and_result() -> None:
     """LLM calls a tool, planner executes it, then LLM gives final answer."""
-    router = MockRouter([
-        # First response: call the test.add tool
-        LLMResponse(
-            content=None,
-            tool_calls=[ToolCall(id="call-1", name="test.add", arguments={"a": 2, "b": 3})],
-        ),
-        # Second response: text with the result
-        LLMResponse(content="The result is 5."),
-    ])
+    router = MockRouter(
+        [
+            # First response: call the test.add tool
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="test.add", arguments={"a": 2, "b": 3})],
+            ),
+            # Second response: text with the result
+            LLMResponse(content="The result is 5."),
+        ]
+    )
     memory = WorkingMemory()
     skills = _make_registry_with_skill()
 
@@ -81,13 +84,15 @@ async def test_tool_call_and_result() -> None:
 @pytest.mark.asyncio
 async def test_unknown_skill() -> None:
     """LLM calls a skill that doesn't exist — planner returns error."""
-    router = MockRouter([
-        LLMResponse(
-            content=None,
-            tool_calls=[ToolCall(id="call-1", name="nonexistent.skill", arguments={})],
-        ),
-        LLMResponse(content="Sorry, that didn't work."),
-    ])
+    router = MockRouter(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="nonexistent.skill", arguments={})],
+            ),
+            LLMResponse(content="Sorry, that didn't work."),
+        ]
+    )
     memory = WorkingMemory()
     skills = SkillRegistry()
 

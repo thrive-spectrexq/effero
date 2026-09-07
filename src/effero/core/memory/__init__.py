@@ -1,4 +1,5 @@
 """Memory sub-package for Effero."""
+
 from __future__ import annotations
 
 from effero.core.memory.episodic import EpisodicMemory

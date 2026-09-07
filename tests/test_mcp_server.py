@@ -1,4 +1,5 @@
 """Tests for MCPServer."""
+
 from __future__ import annotations
 
 import inspect
@@ -45,11 +46,13 @@ async def test_tools_list(mcp_server) -> None:
 
 @pytest.mark.asyncio
 async def test_tools_call(mcp_server) -> None:
-    response = await mcp_server.handle_request({
-        "method": "tools/call",
-        "id": 3,
-        "params": {"name": "test.echo", "arguments": {"message": "hello"}},
-    })
+    response = await mcp_server.handle_request(
+        {
+            "method": "tools/call",
+            "id": 3,
+            "params": {"name": "test.echo", "arguments": {"message": "hello"}},
+        }
+    )
     content = response["result"]["content"]
     assert len(content) == 1
     assert "hello" in content[0]["text"]

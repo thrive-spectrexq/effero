@@ -1,4 +1,5 @@
 """Smart light skills."""
+
 from __future__ import annotations
 
 from effero.adapters.mqtt_matter.client import get_default_client
@@ -17,6 +18,7 @@ async def toggle(device_id: str, state: str) -> dict:
     await client.publish(topic, payload)
     return {"status": "success", "device_id": device_id, "state": state.upper()}
 
+
 @skill(
     name="iot.lights.set_brightness",
     description="Set brightness level (0-100)",
@@ -28,6 +30,7 @@ async def set_brightness(device_id: str, level: int) -> dict:
     payload = {"brightness": level}
     await client.publish(topic, payload)
     return {"status": "success", "device_id": device_id, "brightness": level}
+
 
 @skill(
     name="iot.lights.get_status",
@@ -42,5 +45,5 @@ async def get_status(device_id: str) -> dict:
         "status": "success",
         "device_id": device_id,
         "state": state.get(f"{topic_base}/state", "unknown"),
-        "brightness": state.get(f"{topic_base}/brightness", "unknown")
+        "brightness": state.get(f"{topic_base}/brightness", "unknown"),
     }

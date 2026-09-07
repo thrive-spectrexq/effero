@@ -1,4 +1,5 @@
 """Anthropic backend implementation."""
+
 from __future__ import annotations
 
 import os
@@ -34,7 +35,7 @@ class AnthropicBackend(LLMBackend):
             "max_tokens": request.max_tokens,
             "temperature": request.temperature,
         }
-        
+
         if request.system:
             kwargs["system"] = request.system
 
@@ -56,7 +57,7 @@ class AnthropicBackend(LLMBackend):
 
         content = None
         tool_calls = []
-        
+
         for block in response.content:
             if block.type == "text":
                 if content is None:
@@ -91,6 +92,7 @@ class AnthropicBackend(LLMBackend):
         """Check if this backend is reachable and configured."""
         try:
             import anthropic
+
             return bool(self.api_key)
         except ImportError:
             return False

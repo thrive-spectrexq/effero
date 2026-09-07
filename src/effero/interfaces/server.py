@@ -1,4 +1,5 @@
 """Effero REST and WebSocket API Server powered by FastAPI."""
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # Request / Response Schemas
 # -----------------------------------------------------------------------------
+
 
 class ChatRequest(BaseModel):
     message: str = Field(..., description="Message or instruction for the agent")
@@ -58,6 +60,7 @@ class A2ATaskRequest(BaseModel):
 # -----------------------------------------------------------------------------
 # Application Factory
 # -----------------------------------------------------------------------------
+
 
 def create_app(agent: Agent | None = None) -> FastAPI:
     """Create and configure FastAPI application bound to an Effero Agent."""
@@ -139,6 +142,7 @@ def create_app(agent: Agent | None = None) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     async def get_dashboard():
         from pathlib import Path
+
         html_file = Path(__file__).parent / "static" / "index.html"
         if html_file.exists():
             return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
@@ -174,15 +178,21 @@ def create_app(agent: Agent | None = None) -> FastAPI:
         for name in agent.skills.list():
             try:
                 spec = agent.skills.get(name)
-                items.append({
-                    "name": spec.name,
-                    "description": spec.description,
-                    "safety_class": str(spec.safety_class),
-                    "parameters": [
-                        {"name": p.name, "annotation": str(p.annotation), "default": str(p.default)}
-                        for p in spec.signature.parameters.values()
-                    ],
-                })
+                items.append(
+                    {
+                        "name": spec.name,
+                        "description": spec.description,
+                        "safety_class": str(spec.safety_class),
+                        "parameters": [
+                            {
+                                "name": p.name,
+                                "annotation": str(p.annotation),
+                                "default": str(p.default),
+                            }
+                            for p in spec.signature.parameters.values()
+                        ],
+                    }
+                )
             except Exception:
                 items.append({"name": name})
         return {"skills": items}

@@ -1,4 +1,5 @@
 """Base interface for device adapters."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

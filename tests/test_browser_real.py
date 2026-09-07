@@ -1,8 +1,10 @@
 """Tests for REAL Playwright browser automation skills (no mocks or stubs)."""
+
 from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+
 import pytest
 
 from effero.skills.computer_use.browser import BrowserController

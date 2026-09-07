@@ -37,6 +37,9 @@ jobs:
         run: mypy src/effero
         continue-on-error: true # tighten once core modules have real implementations
 
+      - name: Install Playwright browsers
+        run: playwright install --with-deps chromium
+
       - name: Run tests
         run: pytest --cov=effero --cov-report=term-missing
 

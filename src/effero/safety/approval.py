@@ -1,13 +1,15 @@
 """Human-in-the-loop (HITL) safety approval system for Effero."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +23,7 @@ class ApprovalRequest:
     arguments: dict[str, Any] = field(default_factory=dict)
     reason: str = "Skill requires human authorization"
     safety_class: str = "act_with_approval"
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
@@ -34,9 +34,7 @@ class ApprovalResponse:
     approved: bool
     responder: str = "human"
     comment: str | None = None
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class ApprovalHandler(ABC):
@@ -92,7 +90,7 @@ class ConsoleApprovalHandler(ApprovalHandler):
                 timeout=self.timeout_seconds,
             )
             approved = user_input.strip().lower() in ("y", "yes")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             print("\n[Timeout waiting for authorization: Denied by default]")
             approved = False
         except (KeyboardInterrupt, EOFError):
@@ -128,7 +126,7 @@ class CallbackApprovalHandler(ApprovalHandler):
                 asyncio.create_task(result)
 
             return await asyncio.wait_for(future, timeout=self.timeout_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Approval request {request.id} timed out; defaulting to deny.")
             return ApprovalResponse(
                 request_id=request.id,

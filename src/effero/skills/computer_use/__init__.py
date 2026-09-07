@@ -1,4 +1,5 @@
 """Computer Use Skills module."""
+
 from __future__ import annotations
 
 from effero.skills.computer_use.browser import (

@@ -1,7 +1,7 @@
 """Tests for Vision-Language-Action (VLA) policy runner."""
+
 from __future__ import annotations
 
-import pytest
 from PIL import Image
 
 from effero.perception.vision.vla import VLAAction, VLAPolicyRunner

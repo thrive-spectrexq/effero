@@ -1,9 +1,10 @@
 """Tests for Human-in-the-loop (HITL) approval system."""
+
 from __future__ import annotations
 
 import asyncio
 import inspect
-import functools
+
 import pytest
 
 from effero.core.memory.working import WorkingMemory
@@ -11,7 +12,6 @@ from effero.core.planner.planner import Planner
 from effero.core.router.base import LLMRequest, LLMResponse, ToolCall
 from effero.safety.approval import (
     ApprovalRequest,
-    ApprovalResponse,
     AutoApprovalHandler,
     CallbackApprovalHandler,
 )
@@ -52,13 +52,15 @@ def approval_skill_registry():
 @pytest.mark.asyncio
 async def test_auto_approval_accepts(approval_skill_registry) -> None:
     handler = AutoApprovalHandler(approve_all=True)
-    router = MockRouter([
-        LLMResponse(
-            content=None,
-            tool_calls=[ToolCall(id="call-1", name="database.delete", arguments={"table": "users"})],
-        ),
-        LLMResponse(content="Table deleted successfully."),
-    ])
+    router = MockRouter(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="database.delete", arguments={"table": "users"})],
+            ),
+            LLMResponse(content="Table deleted successfully."),
+        ]
+    )
     planner = Planner(
         router=router,
         memory=WorkingMemory(),
@@ -77,13 +79,15 @@ async def test_auto_approval_accepts(approval_skill_registry) -> None:
 @pytest.mark.asyncio
 async def test_auto_approval_rejects_and_prevents_execution(approval_skill_registry) -> None:
     handler = AutoApprovalHandler(approve_all=False)
-    router = MockRouter([
-        LLMResponse(
-            content=None,
-            tool_calls=[ToolCall(id="call-1", name="database.delete", arguments={"table": "prod"})],
-        ),
-        LLMResponse(content="I could not delete the table due to operator refusal."),
-    ])
+    router = MockRouter(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="database.delete", arguments={"table": "prod"})],
+            ),
+            LLMResponse(content="I could not delete the table due to operator refusal."),
+        ]
+    )
     planner = Planner(
         router=router,
         memory=WorkingMemory(),
@@ -92,6 +96,7 @@ async def test_auto_approval_rejects_and_prevents_execution(approval_skill_regis
     )
 
     result = await planner.run("Delete prod table")
+    assert result is not None
     assert len(handler.history) == 1
     req, res = handler.history[0]
     assert res.approved is False

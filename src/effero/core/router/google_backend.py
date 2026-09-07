@@ -1,4 +1,5 @@
 """Google Gemini backend implementation."""
+
 from __future__ import annotations
 
 import os
@@ -34,15 +35,10 @@ class GoogleBackend(LLMBackend):
             # Gemini uses "user" and "model"
             if role == "assistant":
                 role = "model"
-            
+
             # Simple conversion, ignoring complex parts for now
             content_str = msg.get("content", "")
-            contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part.from_text(content_str)]
-                )
-            )
+            contents.append(types.Content(role=role, parts=[types.Part.from_text(content_str)]))
 
         config_kwargs: dict[str, Any] = {
             "temperature": request.temperature,
@@ -72,26 +68,21 @@ class GoogleBackend(LLMBackend):
                             t_type = types.Type.ARRAY
                         elif v.get("type") == "object":
                             t_type = types.Type.OBJECT
-                            
-                        schema = types.Schema(
-                            type=t_type,
-                            description=v.get("description", "")
-                        )
+
+                        schema = types.Schema(type=t_type, description=v.get("description", ""))
                         props[k] = schema
-                        
+
                     required = tool["parameters"].get("required", [])
 
                 func_decl = types.FunctionDeclaration(
                     name=tool["name"],
                     description=tool.get("description", ""),
-                    parameters=types.Schema(
-                        type=types.Type.OBJECT,
-                        properties=props,
-                        required=required
-                    ) if props else None
+                    parameters=types.Schema(type=types.Type.OBJECT, properties=props, required=required)
+                    if props
+                    else None,
                 )
                 tools.append(types.Tool(function_declarations=[func_decl]))
-            
+
             config_kwargs["tools"] = tools
 
         config = types.GenerateContentConfig(**config_kwargs)
@@ -100,18 +91,15 @@ class GoogleBackend(LLMBackend):
             # We use the synchronous generate_content wrapped in asyncio or assume the SDK handles it
             # The google-genai SDK has client.aio.models.generate_content
             if hasattr(client, "aio"):
-                response = await client.aio.models.generate_content(
-                    model=self.model,
-                    contents=contents,
-                    config=config
-                )
+                response = await client.aio.models.generate_content(model=self.model, contents=contents, config=config)
             else:
                 import asyncio
+
                 response = await asyncio.to_thread(
                     client.models.generate_content,
                     model=self.model,
                     contents=contents,
-                    config=config
+                    config=config,
                 )
         except Exception as e:
             raise RuntimeError(f"Google Gemini API error: {e}") from e
@@ -134,18 +122,18 @@ class GoogleBackend(LLMBackend):
                         # Depending on SDK version, args might be a dict or a Struct
                         if isinstance(fc.args, dict):
                             args = fc.args
-                        elif hasattr(fc.args, "items"): # Might be proto map
+                        elif hasattr(fc.args, "items"):  # Might be proto map
                             args = {k: v for k, v in fc.args.items()}
                         else:
                             # fallback to try casting
                             try:
                                 args = dict(fc.args)
-                            except:
+                            except Exception:
                                 pass
-                    
+
                     tool_calls.append(
                         ToolCall(
-                            id=f"call_{fc.name}", # Gemini doesn't always provide an ID, fake one
+                            id=f"call_{fc.name}",  # Gemini doesn't always provide an ID, fake one
                             name=fc.name,
                             arguments=args,
                         )
@@ -171,6 +159,7 @@ class GoogleBackend(LLMBackend):
         """Check if this backend is reachable and configured."""
         try:
             import google.genai
+
             return bool(self.api_key)
         except ImportError:
             return False

@@ -3,6 +3,7 @@
 Implements the Model Context Protocol (MCP) over stdio transport,
 allowing Claude, IDE agents, and other MCP clients to call Effero skills.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,7 +23,7 @@ class MCPServer:
         """Handle an incoming MCP JSON-RPC request."""
         method = request.get("method", "")
         req_id = request.get("id")
-        
+
         if method == "initialize":
             result = {
                 "protocolVersion": "2024-11-05",
@@ -34,20 +35,25 @@ class MCPServer:
             for s in self.skills.list():
                 # Note: list() returns string names, we need the specs
                 spec = self.skills.get(s)
-                tools.append({
-                    "name": spec.name,
-                    "description": spec.description or "",
-                    "inputSchema": self._build_input_schema(spec),
-                })
+                tools.append(
+                    {
+                        "name": spec.name,
+                        "description": spec.description or "",
+                        "inputSchema": self._build_input_schema(spec),
+                    }
+                )
             result = {"tools": tools}
         elif method == "tools/call":
             result = await self._call_tool(request.get("params", {}))
         elif method == "notifications/initialized":
             return {}  # notification, no response needed
         else:
-            return {"jsonrpc": "2.0", "id": req_id,
-                    "error": {"code": -32601, "message": f"Unknown method: {method}"}}
-        
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32601, "message": f"Unknown method: {method}"},
+            }
+
         return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
     async def _call_tool(self, params: dict) -> dict:
@@ -57,7 +63,7 @@ class MCPServer:
             s = self.skills.get(name)
         except KeyError:
             return {"content": [{"type": "text", "text": f"Unknown tool: {name}"}], "isError": True}
-            
+
         try:
             result = s(**arguments)
             if hasattr(result, "__await__"):
@@ -71,6 +77,7 @@ class MCPServer:
     def _build_input_schema(skill_spec) -> dict:
         """Build JSON Schema for a skill's input parameters."""
         import inspect
+
         sig = skill_spec.signature
         properties = {}
         required = []

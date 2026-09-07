@@ -1,4 +1,5 @@
 """Agent-to-Agent (A2A) protocol implementation for multi-agent delegation and discovery."""
+
 from __future__ import annotations
 
 import logging
@@ -29,9 +30,7 @@ class AgentCard:
     endpoint: str
     version: str = "0.2.0"
     skills: list[str] = field(default_factory=list)
-    modalities: list[str] = field(
-        default_factory=lambda: ["text", "voice", "vision", "robotics", "iot"]
-    )
+    modalities: list[str] = field(default_factory=lambda: ["text", "voice", "vision", "robotics", "iot"])
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

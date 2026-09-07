@@ -1,4 +1,5 @@
 """Local smart home demo — shows Effero controlling mock IoT devices."""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,10 +12,10 @@ async def main() -> None:
     config = EfferoConfig.load("effero.yaml")
     agent = Agent(config)
     await agent.start()
-    
+
     print(f"Agent '{config.agent.name}' ready with skills: {agent.available_skills()}")
     print("Type 'quit' to exit.\n")
-    
+
     while True:
         try:
             user_input = input("> ")
@@ -24,7 +25,7 @@ async def main() -> None:
             break
         response = await agent.chat(user_input)
         print(f"\n{response}\n")
-    
+
     await agent.stop()
 
 

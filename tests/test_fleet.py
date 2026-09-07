@@ -1,10 +1,9 @@
 """Tests for Multi-Agent Fleet Coordinator."""
+
 from __future__ import annotations
 
-import pytest
-
-from effero.core.fleet.coordinator import FleetCoordinator, FleetNode
-from effero.protocols.a2a import AgentCard, TaskMessage, TaskState
+from effero.core.fleet.coordinator import FleetCoordinator
+from effero.protocols.a2a import AgentCard
 
 
 def test_fleet_registration_and_discovery() -> None:
@@ -23,8 +22,8 @@ def test_fleet_registration_and_discovery() -> None:
         skills=["robotics.arm.move_to", "robotics.arm.pick_place"],
     )
 
-    node1 = coordinator.register_node(card1)
-    node2 = coordinator.register_node(card2)
+    coordinator.register_node(card1)
+    coordinator.register_node(card2)
 
     assert len(coordinator.nodes) == 2
     assert coordinator.nodes["mobile-base-1"].id == "mobile-base-1"

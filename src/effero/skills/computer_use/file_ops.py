@@ -1,4 +1,5 @@
 """File operation skills."""
+
 from __future__ import annotations
 
 import os
@@ -14,11 +15,12 @@ from effero.sdk.skill import SafetyClass, skill
 )
 async def read_file(path: str) -> dict:
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
         return {"status": "success", "path": path, "content": content}
     except Exception as e:
         return {"status": "error", "path": path, "error": str(e)}
+
 
 @skill(
     name="computer_use.file.write",
@@ -28,11 +30,12 @@ async def read_file(path: str) -> dict:
 async def write_file(path: str, content: str) -> dict:
     try:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         return {"status": "success", "path": path}
     except Exception as e:
         return {"status": "error", "path": path, "error": str(e)}
+
 
 @skill(
     name="computer_use.file.list_dir",

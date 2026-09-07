@@ -1,14 +1,14 @@
 """Wyoming protocol server and client for local streaming voice integration (Home Assistant compatible)."""
+
 from __future__ import annotations
 
 import asyncio
 import io
 import json
 import logging
-import struct
 import wave
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,11 @@ class WyomingServer:
                             # Send synthesized audio chunk back
                             synthesize_chunk = WyomingEvent(
                                 type="audio-chunk",
-                                data={"rate": sample_rate, "width": sample_width, "channels": channels},
+                                data={
+                                    "rate": sample_rate,
+                                    "width": sample_width,
+                                    "channels": channels,
+                                },
                                 payload=speech_wav,
                             )
                             writer.write(synthesize_chunk.to_bytes())

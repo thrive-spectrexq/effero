@@ -1,4 +1,5 @@
 """Browser automation skills with Playwright engine and mock fallback."""
+
 from __future__ import annotations
 
 import base64
@@ -30,9 +31,7 @@ class BrowserController:
             from playwright.async_api import async_playwright
 
             self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.launch(
-                headless=self.headless
-            )
+            self._browser = await self._playwright.chromium.launch(headless=self.headless)
             self._page = await self._browser.new_page()
             logger.info("Initialized Playwright real browser instance")
         except Exception as exc:
@@ -91,7 +90,6 @@ class BrowserController:
         page = await self._ensure_page()
         text = await page.inner_text(selector, timeout=5000)
         return {"status": "success", "selector": selector, "text": text}
-
 
     async def close(self) -> dict[str, Any]:
         """Close browser resources."""

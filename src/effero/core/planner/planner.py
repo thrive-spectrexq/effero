@@ -1,4 +1,5 @@
 """Planner — the plan/act/observe/replan loop."""
+
 from __future__ import annotations
 
 import json
@@ -42,14 +43,14 @@ class Planner:
     async def run(self, instruction: str) -> str:
         """Execute a plan/act/observe loop for the given instruction."""
         from effero.core.router.base import LLMRequest
-        
+
         self.memory.add_message("system", SYSTEM_PROMPT)
         self.memory.add_message("user", instruction)
         tools = self._get_tools_schema()
 
         for i in range(self.max_iterations):
             logger.info(f"Planning iteration {i + 1}/{self.max_iterations}")
-            
+
             request = LLMRequest(
                 messages=self.memory.get_context(),
                 tools=tools if tools else None,
@@ -64,9 +65,16 @@ class Planner:
             if response.tool_calls:
                 # Record assistant message with tool calls
                 self.memory.add_message(
-                    "assistant", 
+                    "assistant",
                     response.content or "",
-                    tool_calls=[{"id": tc.id, "type": "function", "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)}} for tc in response.tool_calls]
+                    tool_calls=[
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
+                        }
+                        for tc in response.tool_calls
+                    ],
                 )
                 # Execute each tool call
                 for tc in response.tool_calls:
@@ -91,9 +99,7 @@ class Planner:
             getattr(skill_spec, "safety_class", None) == SafetyClass.ACT_WITH_APPROVAL
             or getattr(skill_spec, "safety_class", None) == "act_with_approval"
         )
-        approval_reason = (
-            f"Skill '{name}' has declared safety class {getattr(skill_spec, 'safety_class', 'unknown')}"
-        )
+        approval_reason = f"Skill '{name}' has declared safety class {getattr(skill_spec, 'safety_class', 'unknown')}"
 
         # Safety kernel check
         if self.safety and self.safety.connected:
@@ -125,7 +131,7 @@ class Planner:
                 return {
                     "error": f"Action unauthorized by human operator: {approval_res.comment or 'Permission denied'}"
                 }
-            
+
         try:
             result = skill_spec(**args)
             if hasattr(result, "__await__"):
@@ -138,6 +144,7 @@ class Planner:
     def _get_tools_schema(self) -> list[dict]:
         """Build OpenAI-format tool schemas from registered skills."""
         import inspect
+
         tools = []
         for s_name in self.skills.list():
             s = self.skills.get(s_name)
@@ -158,17 +165,19 @@ class Planner:
                 properties[pname] = prop
                 if param.default is inspect.Parameter.empty:
                     required.append(pname)
-            
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": s.name,
-                    "description": s.description or "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": properties,
-                        "required": required,
+
+            tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": s.name,
+                        "description": s.description or "",
+                        "parameters": {
+                            "type": "object",
+                            "properties": properties,
+                            "required": required,
+                        },
                     },
-                },
-            })
+                }
+            )
         return tools

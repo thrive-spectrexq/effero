@@ -1,4 +1,5 @@
 """ROS 2 adapter — requires a ROS 2 installation with rclpy."""
+
 from __future__ import annotations
 
 import logging
@@ -11,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 class ROS2Bridge(DeviceAdapter):
     """Bridge between Effero and ROS 2.
-    
+
     Requires: pip install effero[ros2] and a ROS 2 installation.
-    
+
     This is a stub implementation. Full ROS 2 support is planned for v0.2.
     """
 
@@ -26,6 +27,7 @@ class ROS2Bridge(DeviceAdapter):
     async def connect(self) -> None:
         try:
             import rclpy
+
             rclpy.init()
             self._node = rclpy.create_node(self.node_name)
             logger.info(f"ROS 2 node '{self.node_name}' initialized")
@@ -36,6 +38,7 @@ class ROS2Bridge(DeviceAdapter):
         if self._node:
             self._node.destroy_node()
             import rclpy
+
             rclpy.shutdown()
 
     async def execute(self, command: str, params: dict[str, Any]) -> Any:

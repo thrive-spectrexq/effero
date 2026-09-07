@@ -1,4 +1,5 @@
 """Async Event Bus for Effero internal pubsub."""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,6 +12,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class Event:
     topic: str
@@ -18,7 +20,9 @@ class Event:
     source: str
     timestamp: float = field(default_factory=time.time)
 
+
 EventHandler = Callable[[Event], Awaitable[None]]
+
 
 class EventBus:
     def __init__(self, max_history: int = 1000):

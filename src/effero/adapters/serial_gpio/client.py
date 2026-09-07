@@ -1,4 +1,5 @@
 """Serial and GPIO adapter implementation."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import serial_asyncio
+
     HAS_SERIAL = True
 except ImportError:
     HAS_SERIAL = False
@@ -30,7 +32,7 @@ class SerialAdapter(DeviceAdapter):
         if not HAS_SERIAL:
             logger.warning("pyserial-asyncio not installed — using mock serial adapter")
             return
-            
+
         self._reader, self._writer = await serial_asyncio.open_serial_connection(url=self.port, baudrate=self.baudrate)
         logger.info(f"Connected to serial port {self.port} at {self.baudrate} baud")
 
@@ -43,7 +45,7 @@ class SerialAdapter(DeviceAdapter):
 
     async def execute(self, command: str, params: dict[str, Any]) -> Any:
         msg = {"command": command, "params": params}
-        
+
         if self._writer and self._reader:
             self._writer.write((json.dumps(msg) + "\n").encode())
             # In a real implementation, we'd want to handle timeouts and reading better

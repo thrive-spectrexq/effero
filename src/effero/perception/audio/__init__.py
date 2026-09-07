@@ -1,4 +1,5 @@
 """Audio perception module."""
+
 from __future__ import annotations
 
 from effero.perception.audio.asr import ASRBackend, TranscriptionResult

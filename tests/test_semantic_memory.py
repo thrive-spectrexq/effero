@@ -1,8 +1,10 @@
 """Tests for Semantic Vector Memory."""
+
 from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+
 import pytest
 
 from effero.core.memory.semantic import (
@@ -82,7 +84,7 @@ def test_semantic_memory_persistence() -> None:
 def test_delete_and_clear() -> None:
     mem = SemanticMemory()
     id1 = mem.store("Note 1")
-    id2 = mem.store("Note 2")
+    mem.store("Note 2")
     assert mem.count() == 2
 
     assert mem.delete(id1) is True

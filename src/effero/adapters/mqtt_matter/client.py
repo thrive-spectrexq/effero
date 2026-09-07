@@ -1,4 +1,5 @@
 """MQTT adapter implementation."""
+
 from __future__ import annotations
 
 import json
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import aiomqtt
+
     HAS_AIOMQTT = True
 except ImportError:
     HAS_AIOMQTT = False
@@ -20,7 +22,13 @@ except ImportError:
 class MQTTAdapter(DeviceAdapter):
     """MQTT Adapter for pub/sub messaging."""
 
-    def __init__(self, broker_host: str = "localhost", broker_port: int = 1883, username: str | None = None, password: str | None = None) -> None:
+    def __init__(
+        self,
+        broker_host: str = "localhost",
+        broker_port: int = 1883,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
         self.broker_host = broker_host
         self.broker_port = broker_port
         self.username = username
@@ -32,12 +40,12 @@ class MQTTAdapter(DeviceAdapter):
         if not HAS_AIOMQTT:
             logger.warning("aiomqtt not installed — using mock MQTT adapter")
             return
-        
+
         self._client = aiomqtt.Client(
-            hostname=self.broker_host, 
+            hostname=self.broker_host,
             port=self.broker_port,
             username=self.username,
-            password=self.password
+            password=self.password,
         )
         await self._client.connect()
         logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
@@ -90,6 +98,7 @@ class MockMQTTAdapter(MQTTAdapter):
 
 
 _default_client: MQTTAdapter | None = None
+
 
 def get_default_client() -> MQTTAdapter:
     global _default_client
