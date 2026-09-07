@@ -59,6 +59,7 @@ Effero doesn't try to replace ROS 2, Home Assistant, or your favorite agent SDK 
 4. **Local-first, cloud-optional.** Effero runs end-to-end on a Raspberry Pi / Jetson / mini-PC with local models (llama.cpp, Ollama, faster-whisper, Piper) and no internet connection. Cloud LLMs and APIs are opt-in accelerants, not requirements.
 5. **Safety is architecture, not a system prompt.** A runtime guardrail engine — independent of the LLM — grounds every proposed action against the robot/device's actual state and a declarative policy before it is allowed to execute.
 6. **Bring your own model.** LLM, ASR, TTS, and vision backends are all adapters behind stable interfaces, matched to your hardware budget: from a 27 MB edge speech model to a frontier cloud LLM.
+7. **Polyglot by design, not by default.** Everything defaults to Python — that's where the ecosystem and the contributors are. Rust shows up only where the architecture specifically calls for it: the safety kernel (an independently-auditable, LLM-free guardrail process) and constrained-device MCP servers (`crates/`) that a Python runtime can't run on. It's never a blanket rewrite of the core.
 
 ---
 
@@ -137,32 +138,41 @@ flowchart TB
 
 ## Repository Layout
 
+The Python core lives under `src/effero/` (a standard `src`-layout
+package, so the repo root and the importable package don't collide);
+`crates/` holds the two Rust components described under Core Principles
+above.
+
 ```
 effero/
-├── core/                     # Orchestrator, planner, memory, model router
-│   ├── agent/                #   plan/act/observe loop, task graph
-│   ├── memory/                #   working, episodic, semantic (vector) memory
-│   ├── planner/                #   task decomposition, replanning
-│   └── router/                #   LLM backend routing & fallback
-├── perception/
-│   ├── vision/                #   detection, segmentation, VLA, OCR adapters
-│   ├── audio/                 #   wake-word, VAD, ASR, TTS adapters
-│   └── sensors/                #   IMU, LiDAR, generic telemetry fusion
-├── skills/                    # MCP-native skill definitions
-│   ├── robotics/
-│   ├── iot/
-│   ├── computer_use/
-│   └── community/
-├── adapters/                  # Device Abstraction Layer
-│   ├── ros2/
-│   ├── mqtt_matter/
-│   ├── serial_gpio/
-│   └── cloud_api/
-├── safety/                    # Guardrail engine, policy DSL, e-stop hooks
-├── protocols/                 # MCP server/client, A2A, Wyoming voice protocol
-├── interfaces/                # CLI, web dashboard, mobile shell, voice loop
-├── sdk/                       # Python & TypeScript SDKs for new skills/adapters
-├── examples/                  # Reference builds (see below)
+├── src/effero/
+│   ├── core/                  # Orchestrator, planner, memory, model router
+│   │   ├── agent/             #   plan/act/observe loop, task graph
+│   │   ├── memory/            #   working, episodic, semantic (vector) memory
+│   │   ├── planner/           #   task decomposition, replanning
+│   │   └── router/            #   LLM backend routing & fallback
+│   ├── perception/
+│   │   ├── vision/            #   detection, segmentation, VLA, OCR adapters
+│   │   ├── audio/              #   wake-word, VAD, ASR, TTS adapters
+│   │   └── sensors/            #   IMU, LiDAR, generic telemetry fusion
+│   ├── skills/                 # MCP-native skill definitions
+│   │   ├── robotics/
+│   │   ├── iot/
+│   │   ├── computer_use/
+│   │   └── community/
+│   ├── adapters/                # Device Abstraction Layer
+│   │   ├── ros2/
+│   │   ├── mqtt_matter/
+│   │   ├── serial_gpio/
+│   │   └── cloud_api/
+│   ├── safety/                   # Guardrail types, policy examples (Python side)
+│   ├── protocols/                # MCP server/client, A2A, Wyoming voice protocol
+│   ├── interfaces/                # CLI, web dashboard, mobile shell, voice loop
+│   └── sdk/                       # The @skill decorator and skill registry
+├── crates/                        # Rust: safety kernel + edge-device MCP server
+│   ├── effero-safety-kernel/      #   the independent, LLM-free guardrail engine
+│   └── effero-edge-mcp/           #   MCP server template for constrained devices
+├── examples/                      # Reference builds (see below)
 ├── docs/
 └── tests/
 ```
@@ -303,6 +313,8 @@ Text-alignment guardrails do not protect against unsafe *physical* actions — a
 
 This mirrors the direction of current robot-safety research: **safety guarantees need to live at the level of grounded, verifiable actions — not at the level of text.**
 
+**Status:** the independent runtime check above is implemented today as [`crates/effero-safety-kernel`](crates/effero-safety-kernel/) — a small, dependency-minimal Rust process (deliberately *not* embedded in the Python runtime, for the reason stated above) that loads a declarative policy and serves allow/require-approval/deny/limit decisions over a local Unix socket. It's built, unit-tested, and has been exercised end-to-end against a live Python client. Wiring it into `src/effero/safety/` as the default path for every skill call is tracked in the Roadmap below.
+
 ---
 
 ## Example Builds (`examples/`)
@@ -317,10 +329,14 @@ This mirrors the direction of current robot-safety research: **safety guarantees
 
 ## Roadmap
 
-- **v0.1 — Foundation**: core runtime, memory, model router, MCP skill layer, IoT adapter (MQTT/Matter), local voice pipeline (Wyoming-compatible).
+- **v0.1 — Foundation** *(in progress)*: core runtime, memory, model router, MCP skill layer, IoT adapter (MQTT/Matter), local voice pipeline (Wyoming-compatible).
+  - ✅ Repo scaffold, `@skill` decorator + registry, minimal `Agent`, packaging/CI, governance docs.
+  - ✅ `effero-safety-kernel` — built, unit-tested, run end-to-end (see Safety & Governance above).
+  - 🚧 `effero-edge-mcp` — written against the current `rmcp` API, first real compile still needed (see [`crates/effero-edge-mcp/README.md`](crates/effero-edge-mcp/README.md)).
+  - ⬜ Wire the safety kernel into `src/effero/safety/` as the default guardrail path; real orchestrator/planner/memory/router logic; MQTT/Matter and voice pipelines.
 - **v0.2 — Embodiment**: ROS 2 adapter, VLA skill runner, simulation-first safety promotion, computer-use adapter.
 - **v0.3 — Multi-agent**: A2A-based fleet coordination, shared memory/negotiation primitives, web dashboard.
-- **v1.0 — Hardened**: formalized policy DSL, third-party safety audit, certified reference hardware profiles (Raspberry Pi 5, Jetson Orin), stable skill SDK for community adapters.
+- **v1.0 — Hardened**: formalized policy DSL (including unifying the Python- and Rust-side condition grammars), third-party safety audit, certified reference hardware profiles (Raspberry Pi 5, Jetson Orin), stable skill SDK for community adapters.
 
 ---
 
