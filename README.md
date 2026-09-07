@@ -79,23 +79,23 @@ Effero is organized in six layers. Data flows up from perception, through cognit
 │                                                                             │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐     │
 │  │  Vision Pipeline │  │  Audio Pipeline  │  │     Sensor Fusion      │     │
-│  │  detection · seg │  │  wake-word · VAD │  │  IMU · LiDAR · telem  │     │
-│  │  VLA · OCR       │  │  ASR · TTS       │  │  odometry · env       │     │
+│  │  detection · seg │  │  wake-word · VAD │  │  IMU · LiDAR · telem   │     │
+│  │  VLA · OCR       │  │  ASR · TTS       │  │  odometry · env        │     │
 │  └──────────────────┘  └──────────────────┘  └────────────────────────┘     │
 └──────────────────────────────┬──────────────────────────────────────────────┘
                                │ events
                                ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    COGNITION CORE  (Effero Runtime)                          │
+│                    COGNITION CORE  (Effero Runtime)                         │
 │                                                                             │
-│  ┌────────────────────┐  ┌──────────────┐  ┌────────────────────────────┐  │
-│  │   Orchestrator /   │  │    Memory     │  │       Model Router        │  │
-│  │      Planner       │  │              │  │                            │  │
-│  │  plan → act →      │  │  working     │  │  local llama.cpp / Ollama │  │
-│  │  observe → replan  │  │  episodic    │  │         ⇅                  │  │
-│  │                    │  │  semantic    │  │  cloud  OpenAI / Anthropic │  │
-│  └────────────────────┘  └──────────────┘  │         / Google           │  │
-│                                             └────────────────────────────┘  │
+│  ┌────────────────────┐  ┌──────────────┐  ┌────────────────────────────┐   │
+│  │   Orchestrator /   │  │    Memory    │  │       Model Router         │   │
+│  │      Planner       │  │              │  │                            │   │
+│  │  plan → act →      │  │  working     │  │  local llama.cpp / Ollama  │   │
+│  │  observe → replan  │  │  episodic    │  │         ⇅                     
+│  │                    │  │  semantic    │  │  cloud  OpenAI / Anthropic │   │
+│  └────────────────────┘  └──────────────┘  │         / Google           │   │
+│                                            └────────────────────────────┘   │
 │                               ◄── A2A ──►                                   │
 └──────────────────────────────┬──────────────────────────────────────────────┘
                                │
@@ -103,10 +103,10 @@ Effero is organized in six layers. Data flows up from perception, through cognit
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      SKILL LAYER  (MCP-native)                              │
 │                                                                             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ Robotics │  │   IoT    │  │ Computer Use │  │  Custom / Community   │  │
-│  │  Skills  │  │  Skills  │  │    Skills     │  │       Skills          │  │
-│  └──────────┘  └──────────┘  └──────────────┘  └────────────────────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌────────────────────────┐   │
+│  │ Robotics │  │   IoT    │  │ Computer Use │  │  Custom / Community    │   │
+│  │  Skills  │  │  Skills  │  │    Skills    │  │       Skills           │   │
+│  └──────────┘  └──────────┘  └──────────────┘  └────────────────────────┘   │
 │                        ▲  Skill Registry  ▲                                 │
 └────────────────────────┼──────────────────┼─────────────────────────────────┘
                          │                  │
