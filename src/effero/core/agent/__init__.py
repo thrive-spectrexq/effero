@@ -147,12 +147,12 @@ class Agent:
                 from effero.adapters.mqtt_matter.client import get_default_client
 
                 mqtt_client = get_default_client()
-                mqtt_client.host = self.config.iot.broker_host
-                mqtt_client.port = self.config.iot.broker_port
+                mqtt_client.broker_host = self.config.iot.broker_host
+                mqtt_client.broker_port = self.config.iot.broker_port
                 mqtt_client.username = self.config.iot.username
                 mqtt_client.password = self.config.iot.password
                 await mqtt_client.connect()
-                logger.info(f"Connected to IoT MQTT broker at {mqtt_client.host}:{mqtt_client.port}")
+                logger.info(f"Connected to IoT MQTT broker at {mqtt_client.broker_host}:{mqtt_client.broker_port}")
             except Exception as e:
                 logger.warning(f"Could not connect to MQTT broker ({e}) — running in local state mode")
 
@@ -196,7 +196,7 @@ class Agent:
             try:
                 from effero.adapters.mqtt_matter.client import get_default_client
 
-                await get_default_client().close()
+                await get_default_client().disconnect()
             except Exception:
                 pass
 
