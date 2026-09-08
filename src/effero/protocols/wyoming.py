@@ -75,9 +75,9 @@ class WyomingServer:
         self,
         host: str = "0.0.0.0",
         port: int = 10400,
-        audio_pipeline=None,
-        agent=None,
-    ):
+        audio_pipeline: Any = None,
+        agent: Any = None,
+    ) -> None:
         self.host = host
         self.port = port
         self.audio_pipeline = audio_pipeline

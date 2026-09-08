@@ -98,7 +98,11 @@ def create_app(agent: Agent | None = None) -> FastAPI:
             "reason": req.reason,
             "safety_class": req.safety_class,
         }
-        asyncio.create_task(broadcast_json(msg))
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(broadcast_json(msg))
+        except RuntimeError:
+            pass
 
     callback_handler = CallbackApprovalHandler(callback=handle_approval_request)
     agent.approval_handler = callback_handler

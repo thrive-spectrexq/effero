@@ -159,12 +159,14 @@ class LeaseManager:
         node_id: str,
         duration: float | None = None,
         granted_at: float | None = None,
+        lease_id: str | None = None,
     ) -> TaskLease:
         """Issue a new task lease."""
         ttl = duration if duration is not None and duration > 0 else self.default_duration
         t_grant = time.time() if granted_at is None else granted_at
+        lid = lease_id or f"lease-{uuid.uuid4().hex[:8]}"
         lease = TaskLease(
-            lease_id=f"lease-{uuid.uuid4().hex[:8]}",
+            lease_id=lid,
             task_id=task_id,
             node_id=node_id,
             granted_at=t_grant,
@@ -452,7 +454,17 @@ class SealedBidAuction:
         rejections: list[BidRejection] = []
 
         for bid in record.bids.values():
-            if bid.commitment_hash and bid.salt:
+            if bid.commitment_hash:
+                if not bid.salt:
+                    rejections.append(
+                        BidRejection(
+                            task_id=task_id,
+                            node_id=bid.node_id,
+                            reason="Sealed bid commitment was never revealed",
+                            bid_id=bid.bid_id,
+                        )
+                    )
+                    continue
                 if not bid.verify_commitment(bid.salt):
                     rejections.append(
                         BidRejection(
@@ -624,6 +636,15 @@ class FailoverManager:
             record = self.auction_engine.get_auction(task_id)
             if record:
                 announcement = record.announcement
+                merged_meta = dict(announcement.metadata)
+                merged_meta.update(
+                    {
+                        "failover_retry": True,
+                        "previous_failed_node": failed_node_id,
+                        "reauction_round": merged_meta.get("reauction_round", 0) + 1,
+                        "previous_bids_count": len(record.bids),
+                    }
+                )
                 new_announcement = TaskAnnouncement(
                     task_id=task_id,
                     instruction=announcement.instruction,
@@ -634,7 +655,7 @@ class FailoverManager:
                     auction_window=announcement.auction_window,
                     sealed=announcement.sealed,
                     created_at=now,
-                    metadata={"failover_retry": True, "previous_failed_node": failed_node_id},
+                    metadata=merged_meta,
                 )
             else:
                 new_announcement = TaskAnnouncement(
@@ -642,7 +663,7 @@ class FailoverManager:
                     instruction=f"Re-auction for expired task {task_id}",
                     required_skills=[],
                     created_at=now,
-                    metadata={"failover_retry": True, "previous_failed_node": failed_node_id},
+                    metadata={"failover_retry": True, "previous_failed_node": failed_node_id, "reauction_round": 1},
                 )
 
             self.auction_engine.create_auction(new_announcement)

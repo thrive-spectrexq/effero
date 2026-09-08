@@ -19,11 +19,11 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     if name in ("LLMBackend", "LLMRequest", "LLMResponse", "ToolCall"):
-        import effero.core.router.base as module
+        import effero.core.router.base as base_mod
 
-        return getattr(module, name)
+        return getattr(base_mod, name)
     elif name == "ModelRouter":
-        import effero.core.router.router as module
+        import effero.core.router.router as router_mod
 
-        return getattr(module, name)
+        return getattr(router_mod, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

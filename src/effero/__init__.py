@@ -7,8 +7,11 @@ See the top-level README.md for the full architecture and philosophy.
 __version__ = "0.1.0a1"
 
 
+from typing import Any
+
+
 # Lazy load to avoid cyclic imports or missing dependencies
-def __getattr__(name):
+def __getattr__(name: str) -> Any:
     if name == "Agent":
         from effero.core.agent import Agent
 

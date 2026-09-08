@@ -12,7 +12,7 @@ from pathlib import Path
 from effero import __version__
 
 
-def setup_logging():
+def setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -29,12 +29,11 @@ async def run_repl(config_path: str | None = None) -> None:
     await agent.start()
 
     print(f"Effero {__version__} REPL. Type 'exit' to quit.")
+    loop = asyncio.get_running_loop()
     try:
         while True:
-            # Need sync input in async loop, this is simple but blocks
-            # Good enough for scaffold
             try:
-                user_input = input(">> ")
+                user_input = await loop.run_in_executor(None, lambda: input(">> "))
             except EOFError:
                 break
 
@@ -90,19 +89,10 @@ def list_skills() -> None:
     # Need to load skills first
     import importlib
 
+    from effero.sdk import BUILTIN_SKILL_MODULES
     from effero.sdk.skill import registry
 
-    skill_modules = [
-        "effero.skills.iot.lights",
-        "effero.skills.iot.thermostat",
-        "effero.skills.iot.sensors",
-        "effero.skills.computer_use.shell",
-        "effero.skills.computer_use.browser",
-        "effero.skills.computer_use.file_ops",
-        "effero.skills.robotics.arm",
-        "effero.skills.robotics.navigate",
-    ]
-    for mod_name in skill_modules:
+    for mod_name in BUILTIN_SKILL_MODULES:
         try:
             importlib.import_module(mod_name)
         except ImportError:
@@ -119,38 +109,25 @@ async def serve_mcp() -> None:
     import importlib
 
     from effero.protocols.mcp_server import MCPServer
+    from effero.sdk import BUILTIN_SKILL_MODULES
     from effero.sdk.skill import registry
 
-    skill_modules = [
-        "effero.skills.iot.lights",
-        "effero.skills.iot.thermostat",
-        "effero.skills.iot.sensors",
-        "effero.skills.computer_use.shell",
-        "effero.skills.computer_use.browser",
-        "effero.skills.computer_use.file_ops",
-        "effero.skills.robotics.arm",
-        "effero.skills.robotics.navigate",
-    ]
-    for mod_name in skill_modules:
+    for mod_name in BUILTIN_SKILL_MODULES:
         try:
             importlib.import_module(mod_name)
         except ImportError:
             pass
 
     server = MCPServer(registry)
-
-    loop = asyncio.get_event_loop()
-    reader = asyncio.StreamReader()
-    protocol = asyncio.StreamReaderProtocol(reader)
-    await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+    loop = asyncio.get_running_loop()
 
     try:
         while True:
-            line = await reader.readline()
+            line = await loop.run_in_executor(None, sys.stdin.readline)
             if not line:
                 break
             try:
-                request = json.loads(line.decode())
+                request = json.loads(line)
                 response = await server.handle_request(request)
                 if response:
                     print(json.dumps(response), flush=True)

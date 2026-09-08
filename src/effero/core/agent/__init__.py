@@ -6,6 +6,7 @@ import logging
 
 from effero.config import EfferoConfig
 from effero.core.event_bus import EventBus
+from effero.core.fleet.coordinator import FleetCoordinator
 from effero.core.memory.episodic import EpisodicMemory
 from effero.core.memory.semantic import SemanticMemory
 from effero.core.memory.working import WorkingMemory
@@ -30,6 +31,7 @@ class Agent:
         config: EfferoConfig | None = None,
         skills: SkillRegistry | None = None,
         approval_handler=None,
+        fleet: FleetCoordinator | None = None,
     ) -> None:
         self.config = config or EfferoConfig.load()
         self.event_bus = EventBus()
@@ -44,6 +46,17 @@ class Agent:
                 host=self.config.safety.kernel_host,
                 port=self.config.safety.kernel_port,
             )
+
+        # Fleet coordinator (opt-in)
+        if fleet is not None:
+            self.fleet: FleetCoordinator | None = fleet
+        elif self.config.fleet.enabled:
+            self.fleet = FleetCoordinator(
+                default_lease_duration=self.config.fleet.default_lease_duration,
+                event_bus=self.event_bus,
+            )
+        else:
+            self.fleet = None
 
         if approval_handler is not None:
             self.approval_handler = approval_handler
@@ -106,19 +119,11 @@ class Agent:
 
     def _load_builtin_skills(self) -> None:
         """Import built-in skill modules to trigger @skill registration."""
-        skill_modules = [
-            "effero.skills.iot.lights",
-            "effero.skills.iot.thermostat",
-            "effero.skills.iot.sensors",
-            "effero.skills.computer_use.shell",
-            "effero.skills.computer_use.browser",
-            "effero.skills.computer_use.file_ops",
-            "effero.skills.robotics.arm",
-            "effero.skills.robotics.navigate",
-        ]
         import importlib
 
-        for mod_name in skill_modules:
+        from effero.sdk import BUILTIN_SKILL_MODULES
+
+        for mod_name in BUILTIN_SKILL_MODULES:
             try:
                 importlib.import_module(mod_name)
             except ImportError as e:

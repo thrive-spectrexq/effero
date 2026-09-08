@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from effero.core.event_bus import Event, EventBus
 from effero.core.fleet.auction import (
     Bid,
     BidScorer,
@@ -43,12 +44,14 @@ class FleetCoordinator:
         client: A2AClient | None = None,
         scorer: BidScorer | None = None,
         default_lease_duration: float = 30.0,
-    ):
+        event_bus: EventBus | None = None,
+    ) -> None:
         self.client = client or A2AClient()
         self.nodes: dict[str, FleetNode] = {}
         self.shared_state: dict[str, Any] = {}
         self.scorer = scorer or BidScorer()
         self.default_lease_duration = default_lease_duration
+        self.event_bus = event_bus
         self.auction_engine = SealedBidAuction(scorer=self.scorer, default_lease_duration=self.default_lease_duration)
         self.lease_manager = LeaseManager(default_duration=self.default_lease_duration)
         self.failover_manager = FailoverManager(
@@ -123,7 +126,16 @@ class FleetCoordinator:
                 sealed=sealed,
                 metadata=metadata or {},
             )
-        return self.auction_engine.create_auction(cfp)
+        tid = self.auction_engine.create_auction(cfp)
+        if self.event_bus:
+            self.event_bus.publish(
+                Event(
+                    topic="fleet.cfp.announced",
+                    data={"task_id": tid, "cfp": asdict(cfp)},
+                    source="fleet-coordinator",
+                )
+            )
+        return tid
 
     def submit_bid(self, bid: Bid, current_time: float | None = None) -> bool:
         """Submit a node proposal / bid to an open task auction."""
@@ -156,6 +168,7 @@ class FleetCoordinator:
                 node_id=award.winning_node_id,
                 duration=award.lease_duration,
                 granted_at=award.awarded_at,
+                lease_id=award.lease_id,
             )
             if award.winning_node_id in self.nodes:
                 self.nodes[award.winning_node_id].active_tasks += 1
@@ -234,7 +247,7 @@ class FleetCoordinator:
             node.active_tasks = max(0, node.active_tasks - 1)
 
     def set_shared_fact(self, key: str, value: Any) -> None:
-        """Broadcast / update a shared distributed memory fact across the fleet."""
+        """Store a shared fact in the fleet coordinator's local state dictionary."""
         self.shared_state[key] = value
 
     def get_shared_fact(self, key: str, default: Any = None) -> Any:

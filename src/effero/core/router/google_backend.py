@@ -29,7 +29,7 @@ class GoogleBackend(LLMBackend):
         client = genai.Client(api_key=self.api_key)
 
         # Convert messages to Gemini Content format
-        contents = []
+        contents: list[Any] = []
         for msg in request.messages:
             role = msg.get("role", "user")
             # Gemini uses "user" and "model"
@@ -38,7 +38,7 @@ class GoogleBackend(LLMBackend):
 
             # Simple conversion, ignoring complex parts for now
             content_str = msg.get("content", "")
-            contents.append(types.Content(role=role, parts=[types.Part.from_text(content_str)]))
+            contents.append(types.Content(role=role, parts=[types.Part(text=content_str)]))
 
         config_kwargs: dict[str, Any] = {
             "temperature": request.temperature,
@@ -91,14 +91,14 @@ class GoogleBackend(LLMBackend):
             # We use the synchronous generate_content wrapped in asyncio or assume the SDK handles it
             # The google-genai SDK has client.aio.models.generate_content
             if hasattr(client, "aio"):
-                response = await client.aio.models.generate_content(model=self.model, contents=contents, config=config)
+                response = await client.aio.models.generate_content(model=self.model, contents=contents, config=config)  # type: ignore[arg-type]
             else:
                 import asyncio
 
                 response = await asyncio.to_thread(
                     client.models.generate_content,
                     model=self.model,
-                    contents=contents,
+                    contents=contents,  # type: ignore[arg-type]
                     config=config,
                 )
         except Exception as e:
@@ -107,7 +107,7 @@ class GoogleBackend(LLMBackend):
         content = None
         tool_calls = []
 
-        if response.candidates and response.candidates[0].content:
+        if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
             for part in response.candidates[0].content.parts:
                 if part.text:
                     if content is None:
@@ -117,13 +117,13 @@ class GoogleBackend(LLMBackend):
                 elif part.function_call:
                     fc = part.function_call
                     # Extract args
-                    args = {}
+                    args: dict[str, Any] = {}
                     if fc.args:
                         # Depending on SDK version, args might be a dict or a Struct
                         if isinstance(fc.args, dict):
                             args = fc.args
                         elif hasattr(fc.args, "items"):  # Might be proto map
-                            args = {k: v for k, v in fc.args.items()}
+                            args = {str(k): v for k, v in fc.args.items()}
                         else:
                             # fallback to try casting
                             try:
@@ -131,10 +131,11 @@ class GoogleBackend(LLMBackend):
                             except Exception:
                                 pass
 
+                    fc_name = str(fc.name) if fc.name else "unknown"
                     tool_calls.append(
                         ToolCall(
-                            id=f"call_{fc.name}",  # Gemini doesn't always provide an ID, fake one
-                            name=fc.name,
+                            id=f"call_{fc_name}",  # Gemini may omit tool_call ID; generate a stable fallback
+                            name=fc_name,
                             arguments=args,
                         )
                     )

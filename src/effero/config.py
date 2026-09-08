@@ -52,6 +52,11 @@ class SafetyConfig(BaseModel):
     approval_mode: str = "console"
 
 
+class FleetConfig(BaseModel):
+    enabled: bool = False
+    default_lease_duration: float = 30.0
+
+
 class AgentConfig(BaseModel):
     name: str = "effero-agent"
     model: ModelConfig = Field(default_factory=ModelConfig)
@@ -62,6 +67,7 @@ class EfferoConfig(BaseModel):
     perception: PerceptionConfig = Field(default_factory=PerceptionConfig)
     skills: list[str] = Field(default_factory=list)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
+    fleet: FleetConfig = Field(default_factory=FleetConfig)
 
     @classmethod
     def load(cls, path: Path | str | None = None) -> EfferoConfig:
@@ -76,13 +82,16 @@ class EfferoConfig(BaseModel):
         return cls()
 
     @classmethod
-    def from_env(cls) -> EfferoConfig:
+    def from_env(cls, path: Path | str | None = None) -> EfferoConfig:
         """Build config with environment variable overrides."""
-        config = cls.load()
-        if key := os.environ.get("OPENAI_API_KEY"):
-            config.agent.model.api_key = key
-        if key := os.environ.get("ANTHROPIC_API_KEY"):
-            config.agent.model.api_key = key
-        if key := os.environ.get("GOOGLE_API_KEY"):
+        config = cls.load(path)
+        backend = config.agent.model.backend
+        env_map = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "google": "GOOGLE_API_KEY",
+        }
+        env_var = env_map.get(backend)
+        if env_var and (key := os.environ.get(env_var)):
             config.agent.model.api_key = key
         return config

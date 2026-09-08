@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from effero.core.memory.working import WorkingMemory
+    from effero.core.router.router import ModelRouter
+    from effero.safety.approval import ApprovalHandler
+    from effero.safety.client import SafetyClient
+    from effero.sdk.skill import SkillRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +33,11 @@ class Planner:
 
     def __init__(
         self,
-        router,
-        memory,
-        skills,
-        safety_client=None,
-        approval_handler=None,
+        router: ModelRouter | Any,
+        memory: WorkingMemory | Any,
+        skills: SkillRegistry | Any,
+        safety_client: SafetyClient | None = None,
+        approval_handler: ApprovalHandler | None = None,
         max_iterations: int = 10,
     ) -> None:
         self.router = router  # ModelRouter

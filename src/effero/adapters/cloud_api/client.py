@@ -30,8 +30,7 @@ class CloudAPIAdapter(DeviceAdapter):
 
     async def connect(self) -> None:
         if not HAS_HTTPX:
-            logger.warning("httpx not installed — running cloud API in mock mode")
-            return
+            raise RuntimeError("httpx is required for CloudAPIAdapter. Install with: pip install httpx")
 
         self._client = httpx.AsyncClient(base_url=self.base_url, headers=self.headers)
         logger.info(f"Cloud API client initialized for {self.base_url}")
@@ -56,8 +55,7 @@ class CloudAPIAdapter(DeviceAdapter):
                 data = {"text": response.text}
             return data
         else:
-            logger.info(f"[Mock API {method}] {self.base_url}/{endpoint.lstrip('/')} -> {payload}")
-            return {"status": "mock", "method": method, "endpoint": endpoint}
+            raise RuntimeError("CloudAPIAdapter not connected. Call await adapter.connect() first.")
 
     async def read_state(self) -> dict[str, Any]:
         if self._client:

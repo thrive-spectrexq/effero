@@ -714,19 +714,16 @@ def test_heterogeneous_swarm_modality_specialization_routing() -> None:
         modality=NodeModality.CLOUD_REASONING,
     )
 
-    assert (
-        coordinator.select_best_node(["robotics.arm.reach"], required_modality=NodeModality.ROBOTICS).id == "arm-node"
-    )
-    assert coordinator.select_best_node(["vision.yolo"], required_modality=NodeModality.VISION_COMPUTE).id == "cam-node"
-    assert coordinator.select_best_node(["iot.read"], required_modality=NodeModality.IOT_EDGE).id == "sensor-node"
-    assert (
-        coordinator.select_best_node(["desktop.click"], required_modality=NodeModality.DESKTOP_AUTOMATION).id
-        == "desktop-node"
-    )
-    assert (
-        coordinator.select_best_node(["cloud.reason"], required_modality=NodeModality.CLOUD_REASONING).id
-        == "cloud-node"
-    )
+    node1 = coordinator.select_best_node(["robotics.arm.reach"], required_modality=NodeModality.ROBOTICS)
+    assert node1 is not None and node1.id == "arm-node"
+    node2 = coordinator.select_best_node(["vision.yolo"], required_modality=NodeModality.VISION_COMPUTE)
+    assert node2 is not None and node2.id == "cam-node"
+    node3 = coordinator.select_best_node(["iot.read"], required_modality=NodeModality.IOT_EDGE)
+    assert node3 is not None and node3.id == "sensor-node"
+    node4 = coordinator.select_best_node(["desktop.click"], required_modality=NodeModality.DESKTOP_AUTOMATION)
+    assert node4 is not None and node4.id == "desktop-node"
+    node5 = coordinator.select_best_node(["cloud.reason"], required_modality=NodeModality.CLOUD_REASONING)
+    assert node5 is not None and node5.id == "cloud-node"
 
 
 def test_fleet_coordinator_unregister_node_cleans_up_leases() -> None:

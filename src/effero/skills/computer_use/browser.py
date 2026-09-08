@@ -1,4 +1,4 @@
-"""Browser automation skills with Playwright engine and mock fallback."""
+"""Browser automation skills powered by Playwright."""
 
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ class BrowserController:
         self._playwright: Any = None
         self._browser: Any = None
         self._page: Any = None
-        self._is_mock = False
 
     async def _ensure_page(self) -> Any:
         """Ensure an active browser page exists."""

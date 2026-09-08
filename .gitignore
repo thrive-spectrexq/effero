@@ -43,6 +43,7 @@ models/
 # Logs and local runtime state
 *.log
 .effero/
+sessions/
 
 # Rust
 /target/

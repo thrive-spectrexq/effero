@@ -118,3 +118,15 @@ def skill(
         return spec
 
     return decorator
+
+
+BUILTIN_SKILL_MODULES: list[str] = [
+    "effero.skills.iot.lights",
+    "effero.skills.iot.thermostat",
+    "effero.skills.iot.sensors",
+    "effero.skills.computer_use.shell",
+    "effero.skills.computer_use.browser",
+    "effero.skills.computer_use.file_ops",
+    "effero.skills.robotics.arm",
+    "effero.skills.robotics.navigate",
+]

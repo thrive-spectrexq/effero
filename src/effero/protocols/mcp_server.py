@@ -23,6 +23,7 @@ class MCPServer:
         """Handle an incoming MCP JSON-RPC request."""
         method = request.get("method", "")
         req_id = request.get("id")
+        result: dict[str, Any]
 
         if method == "initialize":
             result = {

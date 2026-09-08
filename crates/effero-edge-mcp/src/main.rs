@@ -89,3 +89,52 @@ async fn main() -> anyhow::Result<()> {
     service.waiting().await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_edge_device_default_pins() {
+        let device = EdgeDevice::default();
+        for pin in 0..PIN_COUNT as u8 {
+            let res = device.read_pin(Parameters(ReadPinParams { pin }));
+            let json: serde_json::Value = serde_json::from_str(&res).unwrap();
+            assert_eq!(json["pin"], pin);
+            assert_eq!(json["value"], false);
+        }
+    }
+
+    #[test]
+    fn test_edge_device_set_and_read_pin() {
+        let device = EdgeDevice::default();
+
+        let set_res = device.set_pin(Parameters(SetPinParams { pin: 7, value: true }));
+        let set_json: serde_json::Value = serde_json::from_str(&set_res).unwrap();
+        assert_eq!(set_json["pin"], 7);
+        assert_eq!(set_json["value"], true);
+
+        let read_res = device.read_pin(Parameters(ReadPinParams { pin: 7 }));
+        let read_json: serde_json::Value = serde_json::from_str(&read_res).unwrap();
+        assert_eq!(read_json["pin"], 7);
+        assert_eq!(read_json["value"], true);
+
+        // Verify other pin remains false
+        let other_res = device.read_pin(Parameters(ReadPinParams { pin: 8 }));
+        let other_json: serde_json::Value = serde_json::from_str(&other_res).unwrap();
+        assert_eq!(other_json["value"], false);
+    }
+
+    #[test]
+    fn test_edge_device_out_of_range_pin() {
+        let device = EdgeDevice::default();
+
+        let read_err = device.read_pin(Parameters(ReadPinParams { pin: 32 }));
+        let read_json: serde_json::Value = serde_json::from_str(&read_err).unwrap();
+        assert!(read_json["error"].as_str().unwrap().contains("out of range"));
+
+        let set_err = device.set_pin(Parameters(SetPinParams { pin: 33, value: true }));
+        let set_json: serde_json::Value = serde_json::from_str(&set_err).unwrap();
+        assert!(set_json["error"].as_str().unwrap().contains("out of range"));
+    }
+}

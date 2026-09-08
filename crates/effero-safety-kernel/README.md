@@ -35,8 +35,8 @@ read and verified in one sitting rather than trusted as a black box.
   limit). Falls back to `policy.defaults.unknown_skill_action` if nothing
   matches — fail-safe by construction, not by convention.
 - `server.rs` + `bin/effero-safety-kerneld.rs` — a small daemon that
-  loads a policy file and serves decisions over a **Unix domain socket**
-  using a newline-delimited JSON protocol (see below). This has been run
+  loads a policy file and serves decisions over a **TCP socket** (default
+  `127.0.0.1:9400`) using a newline-delimited JSON protocol (see below). This has been run
   and exercised end-to-end from a live Python client during development.
 
 ## Known simplification vs. the Python-side policy sketch
@@ -51,8 +51,7 @@ open, tracked work; see the top-level `ROADMAP`.
 
 ## Wire protocol
 
-One JSON object per line in, one JSON object per line out, over a Unix
-domain socket.
+One JSON object per line in, one JSON object per line out, over a TCP socket (default port 9400).
 
 **Request:**
 ```json

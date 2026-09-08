@@ -43,7 +43,11 @@ class EventBus:
         for pattern, handlers in self._subscribers.items():
             if self._match_topic(pattern, event.topic):
                 for handler in handlers:
-                    asyncio.create_task(self._dispatch(handler, event))
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(self._dispatch(handler, event))
+                    except RuntimeError:
+                        pass
 
     def get_history(self, topic_pattern: str = "*", limit: int = 100) -> list[Event]:
         matches = [e for e in self._history if self._match_topic(topic_pattern, e.topic)]

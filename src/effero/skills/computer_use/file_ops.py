@@ -13,9 +13,16 @@ from effero.sdk.skill import SafetyClass, skill
     description="Read a file",
     safety_class=SafetyClass.READ_ONLY,
 )
-async def read_file(path: str) -> dict:
+async def read_file(path: str, max_bytes: int = 10_000_000) -> dict:
     try:
-        with open(path, encoding="utf-8") as f:
+        p = Path(path)
+        if p.exists() and p.stat().st_size > max_bytes:
+            return {
+                "status": "error",
+                "path": path,
+                "error": f"File size ({p.stat().st_size} bytes) exceeds safety limit of {max_bytes} bytes",
+            }
+        with open(path, encoding="utf-8", errors="replace") as f:
             content = f.read()
         return {"status": "success", "path": path, "content": content}
     except Exception as e:

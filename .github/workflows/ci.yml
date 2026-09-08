@@ -34,8 +34,7 @@ jobs:
         run: ruff format --check .
 
       - name: Type check (mypy)
-        run: mypy src/effero
-        continue-on-error: true # tighten once core modules have real implementations
+        run: mypy src/effero tests --ignore-missing-imports
 
       - name: Install Playwright browsers
         run: playwright install --with-deps chromium
@@ -69,7 +68,6 @@ jobs:
 
       - name: Clippy
         run: cargo clippy -p ${{ matrix.crate }} -- -D warnings
-        continue-on-error: true # tighten once effero-edge-mcp has a confirmed-working build
 
   docker:
     name: docker build smoke test
