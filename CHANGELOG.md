@@ -6,7 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
- 
+
+### Added
+- **2D Occupancy Grid Map (`skills.robotics.grid_map`)**:
+  - Discrete spatial rasterization supporting points, bounding boxes, circles, and walls via Bresenham line raycasting.
+  - Radial obstacle inflation based on robot physical radius for conservative point-mass navigation clearance.
+  - Bidirectional continuous-to-grid coordinate transforms and line-of-sight collision checks.
+- **A\* 2D Grid Path Planner (`skills.robotics.planning.a_star`)**:
+  - 8-connected grid search with Octile distance heuristic and diagonal corner-cutting prevention.
+  - Line-of-sight path smoothing shortcutting intermediate stair-step waypoints into direct flight segments.
+  - Integrated into `NavigationController` and exposed via `@skill(name="robotics.navigate.plan_path")`.
+
 ## [0.1.2] - 2026-09-08
 
 ### Added

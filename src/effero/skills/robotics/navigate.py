@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from effero.sdk.skill import SafetyClass, skill
+from effero.skills.robotics.grid_map import OccupancyGridMap
+from effero.skills.robotics.planning.a_star import AStarPlanner
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,11 @@ class NavigationController:
             "office": Waypoint("office", -1.5, 3.0, 180.0),
             "lab": Waypoint("lab", 5.0, 5.0, 45.0),
         }
+
+        # Grid map and A* path planner
+        self.grid_map = OccupancyGridMap(min_x=-10.0, min_y=-10.0, max_x=10.0, max_y=10.0, resolution=0.1)
+        self.robot_radius_m: float = 0.2
+        self.planner = AStarPlanner(self.grid_map)
 
     def add_waypoint(self, name: str, x: float, y: float, yaw_deg: float = 0.0) -> None:
         """Register a new named coordinate in the map."""
@@ -140,6 +147,41 @@ class NavigationController:
         logger.info("Mobile base emergency stop cleared.")
         return {"status": "success", "action": "clear_emergency_stop"}
 
+    def set_grid_map(self, grid_map: OccupancyGridMap, robot_radius_m: float = 0.2) -> None:
+        """Assign an active occupancy grid map and re-initialize the A* planner."""
+        self.grid_map = grid_map
+        self.robot_radius_m = robot_radius_m
+        self.grid_map.inflate_obstacles(robot_radius_m)
+        self.planner = AStarPlanner(self.grid_map)
+
+    def plan_path_to(
+        self,
+        target_x: float,
+        target_y: float,
+        start_x: float | None = None,
+        start_y: float | None = None,
+        smooth: bool = True,
+    ) -> dict[str, Any]:
+        """Compute an obstacle-free trajectory to target using A* grid search."""
+        sx = self.pose.x if start_x is None else start_x
+        sy = self.pose.y if start_y is None else start_y
+
+        path = self.planner.plan(sx, sy, target_x, target_y, smooth=smooth)
+        if path is None:
+            return {
+                "status": "error",
+                "message": "No collision-free path found to target coordinates.",
+                "start": [round(sx, 3), round(sy, 3)],
+                "target": [round(target_x, 3), round(target_y, 3)],
+            }
+
+        return {
+            "status": "success",
+            "start": [round(sx, 3), round(sy, 3)],
+            "target": [round(target_x, 3), round(target_y, 3)],
+            **path.to_dict(),
+        }
+
     def get_telemetry(self) -> dict[str, Any]:
         """Read real-time navigation telemetry."""
         return {
@@ -150,6 +192,7 @@ class NavigationController:
             "odometry_total_meters": round(self.total_odometry_distance, 3),
             "emergency_stopped": self.emergency_stopped,
             "registered_waypoints": list(self.waypoints.keys()),
+            "grid_map": self.grid_map.to_dict(),
         }
 
 
@@ -191,3 +234,51 @@ async def stop() -> dict[str, Any]:
 )
 async def get_position() -> dict[str, Any]:
     return _nav_controller.get_telemetry()
+
+
+@skill(
+    name="robotics.navigate.plan_path",
+    description="Compute collision-free 2D path waypoints to target coordinates using A* planning.",
+    safety_class=SafetyClass.READ_ONLY,
+)
+async def plan_path(
+    target_x: float,
+    target_y: float,
+    start_x: float | None = None,
+    start_y: float | None = None,
+    obstacles: list[dict[str, Any]] | None = None,
+    robot_radius_m: float = 0.2,
+    smooth: bool = True,
+) -> dict[str, Any]:
+    """Calculate an obstacle-free trajectory to target using A* grid planning."""
+    if obstacles:
+        grid = OccupancyGridMap(min_x=-15.0, min_y=-15.0, max_x=15.0, max_y=15.0, resolution=0.1)
+        for obs in obstacles:
+            obs_type = obs.get("type", "rectangle")
+            if obs_type == "rectangle":
+                grid.add_rectangular_obstacle(obs["min_x"], obs["min_y"], obs["max_x"], obs["max_y"])
+            elif obs_type == "circle":
+                grid.add_circular_obstacle(obs["x"], obs["y"], obs["radius"])
+            elif obs_type == "line":
+                grid.add_line_obstacle(obs["x0"], obs["y0"], obs["x1"], obs["y1"])
+
+        grid.inflate_obstacles(robot_radius_m)
+        planner = AStarPlanner(grid)
+        sx = _nav_controller.pose.x if start_x is None else start_x
+        sy = _nav_controller.pose.y if start_y is None else start_y
+        res = planner.plan(sx, sy, target_x, target_y, smooth=smooth)
+        if res is None:
+            return {
+                "status": "error",
+                "message": "No collision-free path found to target coordinates.",
+                "start": [round(sx, 3), round(sy, 3)],
+                "target": [round(target_x, 3), round(target_y, 3)],
+            }
+        return {
+            "status": "success",
+            "start": [round(sx, 3), round(sy, 3)],
+            "target": [round(target_x, 3), round(target_y, 3)],
+            **res.to_dict(),
+        }
+
+    return _nav_controller.plan_path_to(target_x, target_y, start_x=start_x, start_y=start_y, smooth=smooth)

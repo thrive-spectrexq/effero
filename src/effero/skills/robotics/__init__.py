@@ -19,7 +19,9 @@ from effero.skills.robotics.collision import (
     SphereObstacle,
     WorkspaceBounds,
 )
-from effero.skills.robotics.navigate import get_position, go_to, go_to_coords, stop
+from effero.skills.robotics.grid_map import OccupancyGridMap
+from effero.skills.robotics.navigate import get_position, go_to, go_to_coords, plan_path, stop
+from effero.skills.robotics.planning.a_star import AStarPlanner, PlannedPath
 from effero.skills.robotics.trajectory import (
     MinimumJerkTrajectory,
     MultiSegmentTrajectoryPlanner,
@@ -44,6 +46,10 @@ __all__ = [
     "SphereObstacle",
     "CylinderObstacle",
     "ArmCollisionValidator",
+    # Grid Mapping & Path Planning
+    "OccupancyGridMap",
+    "AStarPlanner",
+    "PlannedPath",
     # Skills
     "move_to",
     "set_gripper",
@@ -53,4 +59,5 @@ __all__ = [
     "go_to_coords",
     "stop",
     "get_position",
+    "plan_path",
 ]
