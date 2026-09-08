@@ -2,7 +2,7 @@
 # automation agent. See examples/local-smart-home/README.md for context.
 #
 # NOTE: this describes the target shape of the config once `effero run`
-# is implemented (see ROADMAP in the top-level README) -- it is not yet
+# is implemented (see ROADMAP.md in the repo root) -- it is not yet
 # a runnable config in this scaffold.
 
 agent:

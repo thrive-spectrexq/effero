@@ -57,4 +57,4 @@ Neither crate is wired into the Python core yet:
   skill layer the same way any MCP server does, once the Python-side MCP
   client wiring in `src/effero/protocols/` lands.
 
-Both integration points are open work — see the top-level `ROADMAP`.
+Both integration points are open work — see the top-level [ROADMAP](../ROADMAP.md).

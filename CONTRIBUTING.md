@@ -102,3 +102,59 @@ If you believe you've found a security vulnerability, please follow [`SECURITY.m
 - One approving review from a maintainer is required to merge; PRs touching `src/effero/safety/` may require two.
 
 Thank you for helping build this — even a single well-tested skill is a genuinely useful contribution.
+
+## Reproducible environment (recommended)
+
+For a reproducible environment matching CI, install from the lockfile:
+
+```bash
+pip install -r requirements-dev.lock -e .
+```
+
+The lockfile is refreshed weekly by Dependabot. To regenerate manually:
+
+```bash
+pip-compile pyproject.toml --extra dev --extra llm -o requirements-dev.lock
+```
+
+## What happens to your PR
+
+```
+  Opened → Triage (labels applied) → Review → CI passes → Merge
+    │                                   │
+    │  needs-info label?                │  Changes requested?
+    └──── Author responds ─────────────┘
+```
+
+1. **Triage**: A maintainer applies labels within ~48 hours:
+   - `area:core`, `area:robotics`, `area:iot`, `area:safety`,
+     `area:perception`, `area:docs`
+   - `size:S` / `size:M` / `size:L`
+2. **Review**: At least one maintainer review is required. PRs touching
+   `src/effero/safety/` or `crates/effero-safety-kernel/` may require
+   two reviews.
+3. **CI**: All jobs in `ci.yml` must pass.
+4. **Merge**: Squash-merge by default. The maintainer may rebase-merge
+   for multi-commit PRs that benefit from preserving history.
+
+If your PR hasn't received a response in a week, please ping
+`@thrive-spectrexq` — it's not being ignored, just missed.
+
+## Versioning and public API
+
+Effero follows Semantic Versioning. If your PR changes the public API
+surface (the SDK, adapter base classes, or safety types), please read
+[`VERSIONING.md`](VERSIONING.md) first — it lists exactly which symbols
+are stable and what the deprecation policy is.
+
+## Governance
+
+See [`GOVERNANCE.md`](GOVERNANCE.md) for the project's decision-making
+model, the path to becoming a co-maintainer, and how safety-critical
+changes are reviewed.
+
+## AI-generated contributions
+
+See [`AI_POLICY.md`](AI_POLICY.md) — disclose AI involvement, take
+responsibility for correctness, and ensure a human has reviewed the
+entire diff.

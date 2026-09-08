@@ -4,7 +4,7 @@ of the LLM, between the skill layer and the Device Abstraction Layer.
 See safety/policies/example.yaml for the intended policy shape and the
 "Safety & Governance" section of the top-level README for the design
 rationale. The verification/grounding logic itself is not implemented in
-this scaffold -- see ROADMAP.
+this scaffold -- see ROADMAP.md in the repo root.
 """
 
 from __future__ import annotations

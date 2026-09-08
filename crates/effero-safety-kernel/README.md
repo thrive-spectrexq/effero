@@ -47,7 +47,7 @@ grammar uses **flat** identifiers instead (`time_hour >= 23`), because
 supporting dotted member access safely would meaningfully grow the
 parser. Unifying the two policy grammars — most likely by having the
 Python side flatten facts before sending them across the socket — is
-open, tracked work; see the top-level `ROADMAP`.
+open, tracked work; see the top-level [ROADMAP](../../ROADMAP.md).
 
 ## Wire protocol
 
@@ -79,7 +79,7 @@ cargo build -p effero-safety-kernel
 ```
 
 Then, from Python (this is the shape the real `effero.safety` module will
-wrap once the Python↔Rust bridge lands — see `ROADMAP`):
+wrap once the Python↔Rust bridge lands — see [ROADMAP](../../ROADMAP.md)):
 
 ```python
 import socket, json
@@ -127,4 +127,4 @@ permanent constraint.
 - Add a `limit` payload to the response (currently the `limit` values on
   a matched rule are loaded but not yet surfaced over the wire protocol).
 - Formal review of the condition parser as part of the v1.0 safety audit
-  called for in the top-level `ROADMAP`.
+  called for in the top-level [ROADMAP](../../ROADMAP.md).

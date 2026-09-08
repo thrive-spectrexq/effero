@@ -8,6 +8,10 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![CI](https://github.com/thrive-spectrexq/effero/actions/workflows/ci.yml/badge.svg)](https://github.com/thrive-spectrexq/effero/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/thrive-spectrexq/effero/graph/badge.svg)](https://codecov.io/gh/thrive-spectrexq/effero)
+[![PyPI version](https://img.shields.io/pypi/v/effero)](https://pypi.org/project/effero/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/effero)](https://pypi.org/project/effero/)
 [![MCP Native](https://img.shields.io/badge/protocol-MCP%20%2B%20A2A-6E56CF)](https://modelcontextprotocol.io)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -43,7 +47,7 @@ Effero doesn't try to replace ROS 2, Home Assistant, or your favorite agent SDK 
 1. **Protocol-native, not protocol-adjacent.** [MCP](https://modelcontextprotocol.io) is how skills are exposed, and [A2A](https://a2aproject.github.io/A2A/) is how agents talk to each other. These aren't plugins bolted onto a proprietary tool format — they *are* the tool format.
 2. **Everything is a Skill.** A robot joint, a smart plug, a shell command, a browser click, and a REST API call are all exposed through the same `Skill` interface: a name, an input schema, a safety class, and an execution scope. The planner never needs to know *how* a skill is implemented.
 3. **Modality-agnostic perception.** Speech, vision, and sensor telemetry are pluggable pipelines with a common event bus. Swap Whisper for Moonshine, or a cloud vision API for a local YOLO model, without touching agent logic.
-4. **Local-first, cloud-optional.** Effero runs end-to-end on a Raspberry Pi / Jetson / mini-PC with local models (llama.cpp, Ollama, faster-whisper, Piper) and no internet connection. Cloud LLMs and APIs are opt-in accelerants, not requirements.
+4. **Local-first, cloud-optional.** Effero runs end-to-end on a Raspberry Pi / Jetson / mini-PC with local models (llama.cpp, Ollama, faster-whisper, Piper) and no internet connection. Cloud LLMs and APIs are opt-in accelerants, not requirements. See the [Hardware Compatibility](docs/compatibility.md) table for tested platforms.
 5. **Safety is architecture, not a system prompt.** A runtime guardrail engine — independent of the LLM — grounds every proposed action against the robot/device's actual state and a declarative policy before it is allowed to execute.
 6. **Bring your own model.** LLM, ASR, TTS, and vision backends are all adapters behind stable interfaces, matched to your hardware budget: from a 27 MB edge speech model to a frontier cloud LLM.
 7. **Polyglot by design, not by default.** Everything defaults to Python — that's where the ecosystem and the contributors are. Rust shows up only where the architecture specifically calls for it: the safety kernel (an independently-auditable, LLM-free guardrail process) and constrained-device MCP servers (`crates/`) that a Python runtime can't run on. It's never a blanket rewrite of the core.

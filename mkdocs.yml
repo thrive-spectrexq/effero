@@ -1,0 +1,90 @@
+site_name: Effero
+site_url: https://thrive-spectrexq.github.io/effero/
+site_description: >
+  One runtime for perceiving, reasoning, and acting —
+  across computers, robots, and connected devices.
+repo_url: https://github.com/thrive-spectrexq/effero
+repo_name: thrive-spectrexq/effero
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            members_order: source
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quickstart: quickstart.md
+    - Configuration: configuration.md
+  - Architecture: architecture.md
+  - Skills:
+    - Overview: skills/index.md
+    - Skill Catalog: skills/catalog.md
+    - Writing a Skill: skills/writing-a-skill.md
+  - Safety & Governance:
+    - Safety Model: safety/index.md
+    - Safety Kernel: safety/rust-kernel.md
+  - API Reference:
+    - SDK: api/sdk.md
+    - Core: api/core.md
+    - Adapters: api/adapters.md
+    - Safety: api/safety.md
+  - Hardware Compatibility: compatibility.md
+  - Contributing: contributing.md
+  - Governance: governance.md
+  - Versioning: versioning.md
+  - Changelog: changelog.md

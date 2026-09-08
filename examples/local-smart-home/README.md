@@ -12,7 +12,7 @@ No cloud dependency required. See `effero.yaml` in this folder for the target co
 
 This example currently documents the **intended** config and wiring — the underlying
 `effero run` command, the audio pipeline, and the MQTT/Matter adapter are not yet
-implemented (see `ROADMAP` in the top-level README). It's included now so the shape of
+implemented (see [ROADMAP](../../ROADMAP.md)). It's included now so the shape of
 a real deployment is concrete from the start, and so contributors building out
 `perception/audio`, `adapters/mqtt_matter`, and `core/router` have a end-to-end target
 to build toward.
