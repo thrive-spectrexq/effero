@@ -10,6 +10,8 @@ import json
 import logging
 from typing import Any
 
+from effero import __version__
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +30,7 @@ class MCPServer:
         if method == "initialize":
             result = {
                 "protocolVersion": "2024-11-05",
-                "serverInfo": {"name": "effero", "version": "0.1.0"},
+                "serverInfo": {"name": "effero", "version": __version__},
                 "capabilities": {"tools": {}},
             }
         elif method == "tools/list":

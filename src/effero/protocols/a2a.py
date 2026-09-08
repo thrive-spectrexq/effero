@@ -11,6 +11,8 @@ from typing import Any
 
 import httpx
 
+from effero import __version__
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +30,7 @@ class AgentCard:
     name: str
     description: str
     endpoint: str
-    version: str = "0.2.0"
+    version: str = __version__
     skills: list[str] = field(default_factory=list)
     modalities: list[str] = field(default_factory=lambda: ["text", "voice", "vision", "robotics", "iot"])
 
@@ -41,7 +43,7 @@ class AgentCard:
             name=data["name"],
             description=data["description"],
             endpoint=data["endpoint"],
-            version=data.get("version", "0.2.0"),
+            version=data.get("version", __version__),
             skills=data.get("skills", []),
             modalities=data.get("modalities", []),
         )
