@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-09-08
+
+### Added
+- **Documentation & Professional Engineering Suite**:
+  - Full MkDocs Material documentation site published to [GitHub Pages](https://thrive-spectrexq.github.io/effero/).
+  - Auto-generated Skill Catalog indexing all 45 registered skills across robotics, IoT, perception, and computer use.
+  - Public API contract specification ([`VERSIONING.md`](VERSIONING.md)) and Single-Maintainer Transparency & Governance policy ([`GOVERNANCE.md`](GOVERNANCE.md)).
+  - AI contribution disclosure rules and human review guidelines ([`AI_POLICY.md`](AI_POLICY.md)).
+  - Real-world hardware compatibility matrix ([`docs/compatibility.md`](docs/compatibility.md)) for robotics and edge platforms.
+  - Reproducible development environment lockfile (`requirements-dev.lock`) and Dependabot automated updates.
+  - Skill Registry validation linter (`scripts/lint_skills.py`) integrated into CI.
+  - Real-time robotics benchmarks (`benchmarks/`) covering EKF state estimation and SE(2)/SE(3) transform compounding.
+  - Fixed dead ROADMAP documentation references and added CI/coverage/PyPI release badges.
+
 ## [0.1.4] - 2026-09-08
 
 ### Added
