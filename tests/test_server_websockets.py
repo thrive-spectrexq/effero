@@ -6,7 +6,7 @@ from starlette.testclient import TestClient
 
 from effero.core.agent import Agent
 from effero.interfaces.server import create_app
-from effero.safety.approval import ApprovalRequest
+from effero.safety.approval import ApprovalRequest, CallbackApprovalHandler
 
 
 def test_websocket_events_connect_and_ping() -> None:
@@ -36,7 +36,7 @@ def test_approvals_api_endpoints() -> None:
             reason="Safety bounding check requires operator confirmation",
             safety_class="act_with_approval",
         )
-        assert agent.approval_handler is not None
+        assert isinstance(agent.approval_handler, CallbackApprovalHandler)
         agent.approval_handler.callback(req)
 
         # Verify listed in GET /v1/approvals

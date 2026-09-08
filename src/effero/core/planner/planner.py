@@ -33,7 +33,7 @@ class Planner:
 
     def __init__(
         self,
-        router: ModelRouter,
+        router: ModelRouter | Any,
         memory: WorkingMemory,
         skills: SkillRegistry,
         safety_client: SafetyClient | None = None,
