@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 8-connected grid search with Octile distance heuristic and diagonal corner-cutting prevention.
   - Line-of-sight path smoothing shortcutting intermediate stair-step waypoints into direct flight segments.
   - Integrated into `NavigationController` and exposed via `@skill(name="robotics.navigate.plan_path")`.
+- **Dynamic Window Approach (DWA) Local Obstacle Avoidance (`skills.robotics.tracking.dwa`)**:
+  - Dynamic window evaluation incorporating hardware limits, acceleration constraints, and prediction horizons.
+  - Multi-objective scoring combining target goal alignment, cruising velocity reward, and obstacle clearance cost.
+  - Integrated into `NavigationController` and exposed via `@skill(name="robotics.navigate.compute_velocity")`.
+- **Pure Pursuit Waypoint Tracking (`skills.robotics.tracking.pure_pursuit`)**:
+  - Dynamic lookahead distance proportional to vehicle speed with goal arrival deceleration.
+  - Curvature-based differential-drive steering computation with angular velocity clamping.
+  - Integrated into `NavigationController` and exposed via `@skill(name="robotics.navigate.track_path")`.
 
 ## [0.1.2] - 2026-09-08
 

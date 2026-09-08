@@ -10,6 +10,11 @@ from typing import Any
 from effero.sdk.skill import SafetyClass, skill
 from effero.skills.robotics.grid_map import OccupancyGridMap
 from effero.skills.robotics.planning.a_star import AStarPlanner
+from effero.skills.robotics.tracking.dwa import DWAController, DWAParams, RobotState
+from effero.skills.robotics.tracking.pure_pursuit import (
+    PurePursuitController,
+    PurePursuitParams,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +72,10 @@ class NavigationController:
         self.grid_map = OccupancyGridMap(min_x=-10.0, min_y=-10.0, max_x=10.0, max_y=10.0, resolution=0.1)
         self.robot_radius_m: float = 0.2
         self.planner = AStarPlanner(self.grid_map)
+
+        # Path tracking and local obstacle avoidance
+        self.dwa_controller = DWAController(DWAParams(robot_radius=self.robot_radius_m))
+        self.pure_pursuit = PurePursuitController(PurePursuitParams())
 
     def add_waypoint(self, name: str, x: float, y: float, yaw_deg: float = 0.0) -> None:
         """Register a new named coordinate in the map."""
@@ -182,6 +191,43 @@ class NavigationController:
             **path.to_dict(),
         }
 
+    def compute_dwa_velocity(
+        self,
+        goal_x: float,
+        goal_y: float,
+        obstacles: list[tuple[float, float]] | None = None,
+    ) -> dict[str, Any]:
+        """Generate safe command velocities using DWA local obstacle avoidance."""
+        obs = obstacles or []
+        state = RobotState(
+            x=self.pose.x,
+            y=self.pose.y,
+            yaw=self.pose.yaw,
+            v=self.linear_velocity_mps,
+            omega=self.angular_velocity_radps,
+        )
+        best_v, best_omega, traj = self.dwa_controller.compute_velocity(state, (goal_x, goal_y), obs)
+        return {
+            "linear_velocity": best_v,
+            "angular_velocity": best_omega,
+            "current_state": state.to_dict(),
+            "goal": [goal_x, goal_y],
+            "predicted_trajectory": traj,
+        }
+
+    def track_waypoints(
+        self,
+        waypoints: list[tuple[float, float]],
+    ) -> dict[str, Any]:
+        """Compute path tracking command using Pure Pursuit controller."""
+        return self.pure_pursuit.compute_command(
+            self.pose.x,
+            self.pose.y,
+            self.pose.yaw,
+            self.linear_velocity_mps,
+            waypoints,
+        )
+
     def get_telemetry(self) -> dict[str, Any]:
         """Read real-time navigation telemetry."""
         return {
@@ -282,3 +328,29 @@ async def plan_path(
         }
 
     return _nav_controller.plan_path_to(target_x, target_y, start_x=start_x, start_y=start_y, smooth=smooth)
+
+
+@skill(
+    name="robotics.navigate.compute_velocity",
+    description="Compute safe (linear, angular) velocity commands to reach a goal while avoiding obstacles via DWA.",
+    safety_class=SafetyClass.READ_ONLY,
+)
+async def compute_velocity(
+    goal_x: float,
+    goal_y: float,
+    obstacles: list[tuple[float, float]] | None = None,
+) -> dict[str, Any]:
+    """Calculate instantaneous collision-free command velocities using Dynamic Window Approach."""
+    return _nav_controller.compute_dwa_velocity(goal_x, goal_y, obstacles=obstacles)
+
+
+@skill(
+    name="robotics.navigate.track_path",
+    description="Calculate steering and velocity commands to track waypoints using Pure Pursuit.",
+    safety_class=SafetyClass.READ_ONLY,
+)
+async def track_path(
+    waypoints: list[tuple[float, float]],
+) -> dict[str, Any]:
+    """Follow a planned trajectory of waypoints with lookahead steering."""
+    return _nav_controller.track_waypoints(waypoints)

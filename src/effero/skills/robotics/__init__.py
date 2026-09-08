@@ -20,8 +20,21 @@ from effero.skills.robotics.collision import (
     WorkspaceBounds,
 )
 from effero.skills.robotics.grid_map import OccupancyGridMap
-from effero.skills.robotics.navigate import get_position, go_to, go_to_coords, plan_path, stop
+from effero.skills.robotics.navigate import (
+    compute_velocity,
+    get_position,
+    go_to,
+    go_to_coords,
+    plan_path,
+    stop,
+    track_path,
+)
 from effero.skills.robotics.planning.a_star import AStarPlanner, PlannedPath
+from effero.skills.robotics.tracking.dwa import DWAController, DWAParams, RobotState
+from effero.skills.robotics.tracking.pure_pursuit import (
+    PurePursuitController,
+    PurePursuitParams,
+)
 from effero.skills.robotics.trajectory import (
     MinimumJerkTrajectory,
     MultiSegmentTrajectoryPlanner,
@@ -50,6 +63,12 @@ __all__ = [
     "OccupancyGridMap",
     "AStarPlanner",
     "PlannedPath",
+    # Path Tracking & Dynamic Obstacle Avoidance
+    "RobotState",
+    "DWAParams",
+    "DWAController",
+    "PurePursuitParams",
+    "PurePursuitController",
     # Skills
     "move_to",
     "set_gripper",
@@ -60,4 +79,6 @@ __all__ = [
     "stop",
     "get_position",
     "plan_path",
+    "compute_velocity",
+    "track_path",
 ]
