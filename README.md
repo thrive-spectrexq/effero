@@ -12,7 +12,7 @@
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Why Effero](#why-effero) • [Architecture](#architecture) • [Quickstart](#quickstart) • [Skills](#skills--the-device-abstraction-layer) • [Safety](#safety--governance) • [Roadmap](#roadmap) • [Contributing](#contributing)
+[Why Effero](#why-effero) • [Architecture](#architecture) • [Quickstart](#quickstart) • [Skills](#skills--the-device-abstraction-layer) • [Safety](#safety--governance) • [Contributing](#contributing)
 
 </div>
 
@@ -304,7 +304,7 @@ Text-alignment guardrails do not protect against unsafe *physical* actions — a
 
 This mirrors the direction of current robot-safety research: **safety guarantees need to live at the level of grounded, verifiable actions — not at the level of text.**
 
-**Status:** the independent runtime check above is implemented today as [`crates/effero-safety-kernel`](crates/effero-safety-kernel/) — a small, dependency-minimal Rust process (deliberately *not* embedded in the Python runtime, for the reason stated above) that loads a declarative policy and serves allow/require-approval/deny/limit decisions over a local Unix socket. It's built, unit-tested, and has been exercised end-to-end against a live Python client. Wiring it into `src/effero/safety/` as the default path for every skill call is tracked in the Roadmap below.
+**Status:** the independent runtime check above is implemented as [`crates/effero-safety-kernel`](crates/effero-safety-kernel/) — a small, dependency-minimal Rust process (deliberately *not* embedded in the Python runtime, for the reason stated above) that loads a declarative policy and serves allow/require-approval/deny/limit decisions over a local Unix socket. It's built, unit-tested, and wired into `src/effero/safety/` with full end-to-end client verification.
 
 ---
 
