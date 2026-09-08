@@ -9,6 +9,11 @@ from typing import Any
 
 from effero.sdk.skill import SafetyClass, skill
 from effero.skills.robotics.grid_map import OccupancyGridMap
+from effero.skills.robotics.localization.ekf import (
+    EKFLocalizer,
+    Landmark,
+    LandmarkObservation,
+)
 from effero.skills.robotics.planning.a_star import AStarPlanner
 from effero.skills.robotics.tracking.dwa import DWAController, DWAParams, RobotState
 from effero.skills.robotics.tracking.pure_pursuit import (
@@ -77,9 +82,21 @@ class NavigationController:
         self.dwa_controller = DWAController(DWAParams(robot_radius=self.robot_radius_m))
         self.pure_pursuit = PurePursuitController(PurePursuitParams())
 
+        # Extended Kalman Filter localizer and spatial landmarks
+        self.localizer = EKFLocalizer(
+            initial_x=self.pose.x,
+            initial_y=self.pose.y,
+            initial_yaw=self.pose.yaw,
+            initial_v=self.linear_velocity_mps,
+        )
+        self.landmarks: dict[str, Landmark] = {
+            wp.name: Landmark(id=wp.name, x=wp.x, y=wp.y) for wp in self.waypoints.values()
+        }
+
     def add_waypoint(self, name: str, x: float, y: float, yaw_deg: float = 0.0) -> None:
         """Register a new named coordinate in the map."""
         self.waypoints[name] = Waypoint(name=name, x=x, y=y, yaw_degrees=yaw_deg)
+        self.landmarks[name] = Landmark(id=name, x=x, y=y)
 
     def navigate_to_coordinates(self, target_x: float, target_y: float, target_yaw_deg: float = 0.0) -> dict[str, Any]:
         """Plan and execute trajectory to Cartesian coordinates."""
@@ -228,6 +245,41 @@ class NavigationController:
             waypoints,
         )
 
+    def predict_step(self, control_v: float, control_omega: float, dt: float = 0.1) -> dict[str, Any]:
+        """Advance robot state prediction using EKF kinematic motion model."""
+        state = self.localizer.predict(control_v, control_omega, dt)
+        self.pose.x = state.x
+        self.pose.y = state.y
+        self.pose.yaw = state.yaw
+        self.linear_velocity_mps = state.v
+        self.angular_velocity_radps = control_omega
+        return {"status": "success", "state": state.to_dict()}
+
+    def update_landmark_observation(self, landmark_id: str, range_m: float, bearing_rad: float) -> dict[str, Any]:
+        """Update robot pose using a relative range/bearing measurement to a known landmark."""
+        if landmark_id not in self.landmarks:
+            return {
+                "status": "error",
+                "message": f"Landmark {landmark_id!r} not found in map.",
+                "known_landmarks": list(self.landmarks.keys()),
+            }
+
+        landmark = self.landmarks[landmark_id]
+        obs = LandmarkObservation(landmark_id=landmark_id, range_m=range_m, bearing_rad=bearing_rad)
+        state = self.localizer.update_landmark(obs, landmark)
+        self.pose.x = state.x
+        self.pose.y = state.y
+        self.pose.yaw = state.yaw
+        return {"status": "success", "state": state.to_dict()}
+
+    def update_position_fix(self, measured_x: float, measured_y: float, std_dev: float = 0.2) -> dict[str, Any]:
+        """Fuse an absolute position coordinate fix into the robot state estimate."""
+        state = self.localizer.update_position(measured_x, measured_y, measurement_std_dev=std_dev)
+        self.pose.x = state.x
+        self.pose.y = state.y
+        self.pose.yaw = state.yaw
+        return {"status": "success", "state": state.to_dict()}
+
     def get_telemetry(self) -> dict[str, Any]:
         """Read real-time navigation telemetry."""
         return {
@@ -239,6 +291,7 @@ class NavigationController:
             "emergency_stopped": self.emergency_stopped,
             "registered_waypoints": list(self.waypoints.keys()),
             "grid_map": self.grid_map.to_dict(),
+            "ekf_localization": self.localizer.get_state().to_dict(),
         }
 
 
@@ -354,3 +407,47 @@ async def track_path(
 ) -> dict[str, Any]:
     """Follow a planned trajectory of waypoints with lookahead steering."""
     return _nav_controller.track_waypoints(waypoints)
+
+
+@skill(
+    name="robotics.navigate.localize_predict",
+    description="Advance robot state and covariance prediction using EKF motion model.",
+    safety_class=SafetyClass.READ_ONLY,
+)
+async def localize_predict(
+    control_v: float,
+    control_omega: float,
+    dt: float = 0.1,
+) -> dict[str, Any]:
+    """Propagate state and uncertainty forward in time given motion control inputs."""
+    return _nav_controller.predict_step(control_v, control_omega, dt=dt)
+
+
+@skill(
+    name="robotics.navigate.localize_landmark",
+    description="Fuse relative range and bearing measurement to a known landmark into EKF state.",
+    safety_class=SafetyClass.READ_ONLY,
+)
+async def localize_landmark(
+    landmark_id: str,
+    range_m: float,
+    bearing_rad: float,
+) -> dict[str, Any]:
+    """Correct robot state estimate using landmark observation."""
+    return _nav_controller.update_landmark_observation(
+        landmark_id=landmark_id, range_m=range_m, bearing_rad=bearing_rad
+    )
+
+
+@skill(
+    name="robotics.navigate.localize_position_fix",
+    description="Fuse an absolute coordinate position fix (GPS/UWB/vision) into EKF state.",
+    safety_class=SafetyClass.READ_ONLY,
+)
+async def localize_position_fix(
+    x: float,
+    y: float,
+    std_dev: float = 0.2,
+) -> dict[str, Any]:
+    """Correct robot state estimate using external coordinate measurement."""
+    return _nav_controller.update_position_fix(x, y, std_dev=std_dev)

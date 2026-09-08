@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Extended Kalman Filter (EKF) Localization (`skills.robotics.localization.ekf`)**:
+  - Full $4 \times 4$ covariance propagation fusing kinematic dead-reckoning motion model with sensor observations.
+  - Non-linear range and bearing landmark updates with $J_H$ measurement Jacobian and innovation residual processing.
+  - Absolute Cartesian position fix fusion (GPS, UWB, or vision fiducials) with dynamic sensor variance weighting.
+  - Continuous 2-sigma spatial uncertainty radius computation reported via real-time telemetry.
+  - Exposed via `@skill(name="robotics.navigate.localize_predict")`, `@skill(name="robotics.navigate.localize_landmark")`, and `@skill(name="robotics.navigate.localize_position_fix")`.
+
 ## [0.1.3] - 2026-09-08
 
 ### Added

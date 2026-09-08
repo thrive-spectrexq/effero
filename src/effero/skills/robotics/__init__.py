@@ -20,11 +20,20 @@ from effero.skills.robotics.collision import (
     WorkspaceBounds,
 )
 from effero.skills.robotics.grid_map import OccupancyGridMap
+from effero.skills.robotics.localization.ekf import (
+    EKFLocalizer,
+    EKFState,
+    Landmark,
+    LandmarkObservation,
+)
 from effero.skills.robotics.navigate import (
     compute_velocity,
     get_position,
     go_to,
     go_to_coords,
+    localize_landmark,
+    localize_position_fix,
+    localize_predict,
     plan_path,
     stop,
     track_path,
@@ -69,6 +78,11 @@ __all__ = [
     "DWAController",
     "PurePursuitParams",
     "PurePursuitController",
+    # Localization & State Estimation
+    "EKFState",
+    "Landmark",
+    "LandmarkObservation",
+    "EKFLocalizer",
     # Skills
     "move_to",
     "set_gripper",
@@ -81,4 +95,7 @@ __all__ = [
     "plan_path",
     "compute_velocity",
     "track_path",
+    "localize_predict",
+    "localize_landmark",
+    "localize_position_fix",
 ]
