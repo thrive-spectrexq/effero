@@ -92,8 +92,8 @@ ignore = ["B904", "E501"]
 "src/effero/core/router/google_backend.py" = ["F401"]
 
 [tool.mypy]
-python_version = "3.11"
 ignore_missing_imports = true
+follow_imports = "silent"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
