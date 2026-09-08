@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 IS_WINDOWS = sys.platform == "win32"
 
 if IS_WINDOWS:
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
+    user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
 else:  # pragma: no cover
     user32 = None  # type: ignore[assignment]
     kernel32 = None  # type: ignore[assignment]
@@ -105,7 +105,7 @@ class INPUT(ctypes.Structure):
 
 
 # Function pointer type for EnumWindows callback
-WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)  # type: ignore[attr-defined]
 
 # ============================================================================
 # Win32 Constants
@@ -729,7 +729,7 @@ class DesktopController:
         arr = (INPUT * len(inputs))(*inputs)
         ret = user32.SendInput(len(inputs), arr, ctypes.sizeof(INPUT))
         if ret == 0:
-            err = ctypes.GetLastError()
+            err = ctypes.GetLastError()  # type: ignore[attr-defined]
             if err != 0 and err != 5:  # Error 5 is access denied in non-interactive/Session 0
                 logger.debug("SendInput returned 0 (Win32 error %d)", err)
         return int(ret)
