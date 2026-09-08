@@ -105,7 +105,10 @@ class INPUT(ctypes.Structure):
 
 
 # Function pointer type for EnumWindows callback
-WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)  # type: ignore[attr-defined]
+if IS_WINDOWS:
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)  # type: ignore[attr-defined]
+else:  # pragma: no cover
+    WNDENUMPROC = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)  # type: ignore[assignment]
 
 # ============================================================================
 # Win32 Constants
