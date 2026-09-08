@@ -451,6 +451,10 @@ class MQTTAdapter(DeviceAdapter):
         except Exception:
             self._state[topic] = payload
 
+        if not self.is_connected:
+            logger.debug(f"MQTT client not connected to broker; updated local state for {topic}")
+            return
+
         if qos == 0:
             packet = PublishPacket(
                 topic=topic,

@@ -146,6 +146,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_p = subparsers.add_parser("run", help="Start interactive REPL loop")
     run_p.add_argument("--config", help="Path to config file")
+    run_p.add_argument("--voice", action="store_true", help="Start with voice input/output loop")
+
+    voice_p = subparsers.add_parser("voice", help="Start voice interaction loop")
+    voice_p.add_argument("--config", help="Path to config file")
+    voice_p.add_argument("--wake-word", help="Wake word filter (e.g. 'hey effero')")
 
     chat_p = subparsers.add_parser("chat", help="Send a single message")
     chat_p.add_argument("message", help="Message to send")
@@ -186,7 +191,39 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "run":
-        asyncio.run(run_repl(args.config))
+        if getattr(args, "voice", False):
+            from effero.config import EfferoConfig
+            from effero.core.agent import Agent
+            from effero.interfaces.voice import VoiceLoop
+            from effero.perception.audio.pipeline import AudioPipeline
+
+            cfg = EfferoConfig.load(args.config)
+            agent = Agent(config=cfg)
+            pipeline = AudioPipeline(event_bus=agent.event_bus)
+            loop = VoiceLoop(agent=agent, audio_pipeline=pipeline, wake_word=cfg.perception.audio.wake_word)
+            asyncio.run(agent.start())
+            try:
+                asyncio.run(loop.run_interactive())
+            finally:
+                asyncio.run(agent.stop())
+        else:
+            asyncio.run(run_repl(args.config))
+    elif args.command == "voice":
+        from effero.config import EfferoConfig
+        from effero.core.agent import Agent
+        from effero.interfaces.voice import VoiceLoop
+        from effero.perception.audio.pipeline import AudioPipeline
+
+        cfg = EfferoConfig.load(args.config)
+        agent = Agent(config=cfg)
+        pipeline = AudioPipeline(event_bus=agent.event_bus)
+        wake = args.wake_word or cfg.perception.audio.wake_word
+        loop = VoiceLoop(agent=agent, audio_pipeline=pipeline, wake_word=wake)
+        asyncio.run(agent.start())
+        try:
+            asyncio.run(loop.run_interactive())
+        finally:
+            asyncio.run(agent.stop())
     elif args.command == "chat":
         asyncio.run(run_chat(args.message))
     elif args.command == "init":

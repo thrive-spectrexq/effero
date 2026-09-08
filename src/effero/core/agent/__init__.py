@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 from effero.config import EfferoConfig
 from effero.core.callbacks.base import AgentCallback, CallbackList
@@ -46,11 +47,23 @@ class Agent:
         self.router = ModelRouter(self.config.agent.model)
         self.callbacks = callbacks if isinstance(callbacks, CallbackList) else CallbackList(callbacks)
         self.safety: SafetyClient | None = None
+        self.safety_daemon: Any = None
         if self.config.safety.enabled:
             self.safety = SafetyClient(
                 host=self.config.safety.kernel_host,
                 port=self.config.safety.kernel_port,
             )
+            if self.config.safety.auto_spawn:
+                from effero.safety.daemon import SafetyDaemonManager
+
+                self.safety_daemon = SafetyDaemonManager(
+                    host=self.config.safety.kernel_host,
+                    port=self.config.safety.kernel_port,
+                    policy_path=self.config.safety.policy,
+                )
+
+        # External MCP clients
+        self.mcp_clients: list[Any] = []
 
         # Fleet coordinator (opt-in)
         if fleet is not None:
@@ -110,7 +123,15 @@ class Agent:
         return await self.run(message)
 
     async def start(self) -> None:
-        """Start background services."""
+        """Start background services: Safety daemon, MQTT broker, MCP tools, and builtins."""
+        # 1. Start Safety Kernel Daemon if auto-spawn is enabled
+        if self.safety_daemon:
+            try:
+                await self.safety_daemon.ensure_running()
+            except Exception as e:
+                logger.warning(f"Safety daemon auto-spawn check failed: {e}")
+
+        # 2. Connect SafetyClient
         if self.safety:
             try:
                 await self.safety.connect()
@@ -120,15 +141,71 @@ class Agent:
                 self.safety = None
                 self.planner.safety = None
 
-        # Load built-in skills
+        # 3. Initialize & connect IoT MQTT client if configured
+        if self.config.iot.enabled and self.config.iot.auto_connect:
+            try:
+                from effero.adapters.mqtt_matter.client import get_default_client
+
+                mqtt_client = get_default_client()
+                mqtt_client.host = self.config.iot.broker_host
+                mqtt_client.port = self.config.iot.broker_port
+                mqtt_client.username = self.config.iot.username
+                mqtt_client.password = self.config.iot.password
+                await mqtt_client.connect()
+                logger.info(f"Connected to IoT MQTT broker at {mqtt_client.host}:{mqtt_client.port}")
+            except Exception as e:
+                logger.warning(f"Could not connect to MQTT broker ({e}) — running in local state mode")
+
+        # 4. Load external MCP servers if configured
+        if self.config.mcp_servers:
+            from effero.protocols.mcp_client import MCPClient
+
+            for mcp_cfg in self.config.mcp_servers:
+                try:
+                    client = MCPClient(
+                        name=mcp_cfg.name,
+                        command=mcp_cfg.command,
+                        args=mcp_cfg.args,
+                        env=mcp_cfg.env,
+                        url=mcp_cfg.url,
+                        default_safety_class=mcp_cfg.default_safety_class,
+                    )
+                    await client.connect()
+                    await client.list_tools()
+                    mounted = client.mount_tools(self.skills)
+                    self.mcp_clients.append(client)
+                    logger.info(f"Mounted {len(mounted)} tools from external MCP server '{mcp_cfg.name}'")
+                except Exception as e:
+                    logger.error(f"Failed to mount MCP server '{mcp_cfg.name}': {e}")
+
+        # 5. Load built-in skills
         self._load_builtin_skills()
 
         logger.info(f"Agent '{self.config.agent.name}' started with {len(self.skills.list())} skills")
 
     async def stop(self) -> None:
-        """Graceful shutdown."""
+        """Graceful shutdown of safety client, external MCP servers, and background daemons."""
+        for client in self.mcp_clients:
+            try:
+                await client.close()
+            except Exception:
+                pass
+        self.mcp_clients.clear()
+
+        if self.config.iot.enabled:
+            try:
+                from effero.adapters.mqtt_matter.client import get_default_client
+
+                await get_default_client().close()
+            except Exception:
+                pass
+
         if self.safety:
             await self.safety.close()
+
+        if self.safety_daemon:
+            await self.safety_daemon.stop()
+
         logger.info(f"Agent '{self.config.agent.name}' stopped")
 
     def _load_builtin_skills(self) -> None:

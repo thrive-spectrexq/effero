@@ -21,6 +21,7 @@ from effero.safety.approval import (
     ConsoleApprovalHandler,
 )
 from effero.safety.client import SafetyClient
+from effero.safety.daemon import SafetyDaemonManager
 
 
 class PolicyDecision(StrEnum):
@@ -39,6 +40,7 @@ __all__ = [
     "PolicyDecision",
     "GuardrailResult",
     "SafetyClient",
+    "SafetyDaemonManager",
     "ApprovalRequest",
     "ApprovalResponse",
     "ApprovalHandler",

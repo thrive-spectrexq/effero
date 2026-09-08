@@ -5,10 +5,10 @@
 
 ## Near-term (v0.2.x)
 
-- [ ] Python ↔ Rust safety-kernel bridge (`src/effero/safety/` → `crates/effero-safety-kernel` TCP RPC)
-- [ ] MCP client wiring in `src/effero/protocols/` for external MCP servers (including `effero-edge-mcp`)
-- [ ] `effero run` end-to-end voice loop (wake-word → ASR → LLM → skill → TTS)
-- [ ] MQTT/Matter adapter live integration with `iot.*` skills
+- [x] Python ↔ Rust safety-kernel bridge & daemon manager (`src/effero/safety/` → `crates/effero-safety-kernel` TCP RPC & auto-spawn)
+- [x] MCP client wiring in `src/effero/protocols/` for external MCP servers (including `effero-edge-mcp`)
+- [x] `effero run --voice` & `effero voice` end-to-end voice loop (wake-word → ASR → LLM → skill → TTS)
+- [x] MQTT/Matter adapter live integration with `iot.*` skills
 
 ## Mid-term (v0.3.x)
 

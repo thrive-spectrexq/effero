@@ -50,11 +50,32 @@ class SafetyConfig(BaseModel):
     policy: str | None = None
     require_approval_for: list[str] = Field(default_factory=list)
     approval_mode: str = "console"
+    auto_spawn: bool = True
 
 
 class FleetConfig(BaseModel):
     enabled: bool = False
     default_lease_duration: float = 30.0
+
+
+class IoTConfig(BaseModel):
+    enabled: bool = False
+    broker_host: str = "127.0.0.1"
+    broker_port: int = 1883
+    username: str | None = None
+    password: str | None = None
+    client_id: str | None = None
+    keepalive: int = 60
+    auto_connect: bool = True
+
+
+class MCPServerConfig(BaseModel):
+    name: str
+    command: str | None = None
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(default_factory=dict)
+    url: str | None = None
+    default_safety_class: str = "act_with_approval"
 
 
 class AgentConfig(BaseModel):
@@ -68,6 +89,8 @@ class EfferoConfig(BaseModel):
     skills: list[str] = Field(default_factory=list)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     fleet: FleetConfig = Field(default_factory=FleetConfig)
+    iot: IoTConfig = Field(default_factory=IoTConfig)
+    mcp_servers: list[MCPServerConfig] = Field(default_factory=list)
 
     @classmethod
     def load(cls, path: Path | str | None = None) -> EfferoConfig:

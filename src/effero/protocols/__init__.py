@@ -11,10 +11,12 @@ from effero.protocols.a2a import (
     TaskMessage,
     TaskState,
 )
+from effero.protocols.mcp_client import MCPClient
 from effero.protocols.mcp_server import MCPServer
 from effero.protocols.wyoming import WyomingClient, WyomingEvent, WyomingServer
 
 __all__ = [
+    "MCPClient",
     "MCPServer",
     "A2AClient",
     "AgentCard",
