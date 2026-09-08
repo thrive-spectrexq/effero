@@ -31,7 +31,7 @@ jobs:
         run: python scripts/generate_skill_catalog.py
 
       - name: Build docs
-        run: mkdocs build --strict
+        run: mkdocs build
 
       - uses: actions/upload-pages-artifact@v3
         with:

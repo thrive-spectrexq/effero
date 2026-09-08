@@ -33,6 +33,7 @@ def test_landmark_update(benchmark, ekf):
 
 def test_predict_update_cycle(benchmark, ekf):
     """Benchmark a full predict-then-update cycle."""
+
     def cycle():
         ekf.predict(v=1.0, omega=0.1, dt=0.05)
         ekf.update_landmark(
