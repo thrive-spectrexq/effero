@@ -33,16 +33,16 @@ class Planner:
 
     def __init__(
         self,
-        router: ModelRouter | Any,
-        memory: WorkingMemory | Any,
-        skills: SkillRegistry | Any,
+        router: ModelRouter,
+        memory: WorkingMemory,
+        skills: SkillRegistry,
         safety_client: SafetyClient | None = None,
         approval_handler: ApprovalHandler | None = None,
         max_iterations: int = 10,
     ) -> None:
-        self.router = router  # ModelRouter
-        self.memory = memory  # WorkingMemory
-        self.skills = skills  # SkillRegistry
+        self.router = router
+        self.memory = memory
+        self.skills = skills
         self.safety = safety_client  # SafetyClient or None
         self.approval_handler = approval_handler  # ApprovalHandler or None
         self.max_iterations = max_iterations

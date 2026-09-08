@@ -8,6 +8,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 from effero import __version__
 
@@ -159,6 +160,19 @@ def build_parser() -> argparse.ArgumentParser:
     serve_p.add_argument("--host", default="0.0.0.0", help="Host to bind server (default: 0.0.0.0)")
     serve_p.add_argument("--port", type=int, default=8000, help="Port to bind server (default: 8000)")
 
+    config_p = subparsers.add_parser("config", help="Manage effero configuration")
+    config_sub = config_p.add_subparsers(dest="config_action")
+
+    cfg_set = config_sub.add_parser("set", help="Set configuration value (e.g. model.backend ollama --model qwen3:8b)")
+    cfg_set.add_argument("key", help="Configuration path key (e.g. model.backend, agent.name)")
+    cfg_set.add_argument("value", help="Configuration value to set")
+    cfg_set.add_argument("--model", help="Optional model name override")
+    cfg_set.add_argument("--config", help="Path to config file")
+
+    cfg_get = config_sub.add_parser("get", help="Get configuration value")
+    cfg_get.add_argument("key", nargs="?", help="Key to read, or empty to display full config")
+    cfg_get.add_argument("--config", help="Path to config file")
+
     return parser
 
 
@@ -188,8 +202,72 @@ def main(argv: list[str] | None = None) -> int:
 
         app = create_app()
         uvicorn.run(app, host=args.host, port=args.port)
+    elif args.command == "config":
+        handle_config(args)
 
     return 0
+
+
+def handle_config(args: argparse.Namespace) -> None:
+    """Handle effero config get and config set subcommands."""
+    import yaml
+
+    from effero.config import EfferoConfig
+
+    config_path = getattr(args, "config", None)
+    config = EfferoConfig.load(config_path)
+
+    if args.config_action == "set":
+        key: str = args.key
+        value: str = args.value
+
+        # Support dotted keys (e.g. model.backend, agent.name)
+        if key in ("model.backend", "agent.model.backend"):
+            config.agent.model.backend = value
+        elif key in ("model.name", "agent.model.model", "model"):
+            config.agent.model.model = value
+        elif key in ("agent.name", "name"):
+            config.agent.name = value
+        elif key == "safety.enabled":
+            config.safety.enabled = value.lower() in ("true", "1", "yes")
+        elif key == "safety.policy":
+            config.safety.policy = value
+        elif key == "safety.kernel_host":
+            config.safety.kernel_host = value
+        elif key == "safety.kernel_port":
+            config.safety.kernel_port = int(value)
+        elif key == "fleet.enabled":
+            config.fleet.enabled = value.lower() in ("true", "1", "yes")
+        else:
+            # Generic top-level attribute fallback
+            if hasattr(config, key):
+                setattr(config, key, value)
+            else:
+                print(f"Unknown config key: {key}")
+                return
+
+        if getattr(args, "model", None):
+            config.agent.model.model = args.model
+
+        saved_path = config.save(config_path)
+        print(f"Updated configuration written to {saved_path}")
+
+    elif args.config_action == "get":
+        data = config.model_dump(mode="python", exclude_none=True)
+        get_key: str | None = getattr(args, "key", None)
+        if not get_key:
+            print(yaml.safe_dump(data, sort_keys=False))
+            return
+
+        parts = get_key.split(".")
+        curr: Any = data
+        for p in parts:
+            if isinstance(curr, dict) and p in curr:
+                curr = curr[p]
+            else:
+                print(f"Config key '{get_key}' not found.")
+                return
+        print(curr)
 
 
 if __name__ == "__main__":

@@ -63,18 +63,25 @@ class ModelRouter:
         if provider == "openai":
             from effero.core.router.openai_backend import OpenAIBackend
 
-            # You might want to extract base_url or other settings from config here if available
-            return OpenAIBackend(model=model)
+            return OpenAIBackend(model=model, api_key=config.api_key, base_url=config.base_url)
+
+        elif provider in ("ollama", "local", "llama.cpp", "llamacpp"):
+            from effero.core.router.openai_backend import OpenAIBackend
+
+            # Ollama and llama.cpp expose standard OpenAI-compatible /v1 endpoints
+            base_url = config.base_url or "http://127.0.0.1:11434/v1"
+            api_key = config.api_key or "ollama"
+            return OpenAIBackend(model=model, api_key=api_key, base_url=base_url)
 
         elif provider == "anthropic":
             from effero.core.router.anthropic_backend import AnthropicBackend
 
-            return AnthropicBackend(model=model)
+            return AnthropicBackend(model=model, api_key=config.api_key)
 
         elif provider in ("google", "gemini"):
             from effero.core.router.google_backend import GoogleBackend
 
-            return GoogleBackend(model=model)
+            return GoogleBackend(model=model, api_key=config.api_key)
 
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

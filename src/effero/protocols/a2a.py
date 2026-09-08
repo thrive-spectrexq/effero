@@ -7,11 +7,14 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from effero import __version__
+
+if TYPE_CHECKING:
+    from effero.core.agent import Agent
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +145,7 @@ class A2AClient:
 class A2ATaskManager:
     """Local manager storing and dispatching tasks received from peer agents."""
 
-    def __init__(self, agent_instance=None):
+    def __init__(self, agent_instance: Agent | None = None) -> None:
         self.agent = agent_instance
         self.tasks: dict[str, TaskMessage] = {}
 

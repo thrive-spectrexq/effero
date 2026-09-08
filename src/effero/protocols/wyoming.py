@@ -8,7 +8,11 @@ import json
 import logging
 import wave
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from effero.core.agent import Agent
+    from effero.perception.audio.pipeline import AudioPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +79,8 @@ class WyomingServer:
         self,
         host: str = "0.0.0.0",
         port: int = 10400,
-        audio_pipeline: Any = None,
-        agent: Any = None,
+        audio_pipeline: AudioPipeline | None = None,
+        agent: Agent | None = None,
     ) -> None:
         self.host = host
         self.port = port

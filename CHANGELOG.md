@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+ 
+## [0.1.2] - 2026-09-08
+
+### Added
+- **CLI Configuration Management (`effero config get` / `effero config set`)**:
+  - Direct modification and query of `effero.yaml` keys from terminal without manual file editing.
+  - Native support for Ollama and local OpenAI-compatible backends (`http://127.0.0.1:11434/v1`).
+- **Community System Info Skill (`community.system_info.get_overview`)**:
+  - Live OS, CPU cores/usage, RAM, disk capacity, and uptime telemetry via `psutil`.
+  - Zero mock dependency — gathers live physical machine metrics.
+- **Effero Technical Architecture Guide**:
+  - Upgraded `docs/architecture.md` into comprehensive six-layer system documentation.
+
+### Fixed
+- **Type Annotations & Clean Code**:
+  - Cleaned up loose types and unions in `Planner`, `MCPServer`, `WyomingServer`, `Agent`, `NavigationController`, and `A2ATaskManager`.
+  - Added unit test coverage for new CLI commands and community skills (234 tests passing).
+- **Rust Safety Kernel Documentation**:
+  - Aligned `effero-safety-kerneld` binary documentation with actual TCP socket implementation.
 
 ## [0.1.0] - 2026-09-08
 

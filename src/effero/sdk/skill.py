@@ -129,4 +129,5 @@ BUILTIN_SKILL_MODULES: list[str] = [
     "effero.skills.computer_use.file_ops",
     "effero.skills.robotics.arm",
     "effero.skills.robotics.navigate",
+    "effero.skills.community.system_info",
 ]

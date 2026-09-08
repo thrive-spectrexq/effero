@@ -50,3 +50,28 @@ def test_cli_init_command(tmp_path: Path) -> None:
     code = main(["init", str(target_dir)])
     assert code == 0
     assert (target_dir / "effero.yaml").exists()
+
+
+def test_cli_config_get_and_set(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # Create initial project config
+    main(["init", str(tmp_path / "proj")])
+    proj_cfg = tmp_path / "proj" / "effero.yaml"
+    assert proj_cfg.exists()
+
+    # Test setting model.backend to ollama and model name to qwen3:8b
+    code = main(["config", "set", "model.backend", "ollama", "--model", "qwen3:8b", "--config", str(proj_cfg)])
+    assert code == 0
+
+    capsys.readouterr()
+
+    # Test config get for the updated model.backend
+    code = main(["config", "get", "agent.model.backend", "--config", str(proj_cfg)])
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "ollama" in captured.out
+
+    # Test config get for the updated model
+    code = main(["config", "get", "agent.model.model", "--config", str(proj_cfg)])
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "qwen3:8b" in captured.out

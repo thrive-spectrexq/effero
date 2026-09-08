@@ -43,7 +43,7 @@ class Waypoint:
 class NavigationController:
     """Navigation engine tracking robot pose, waypoints, and differential kinematics."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.pose = Pose2D(0.0, 0.0, 0.0)
         self.linear_velocity_mps: float = 0.0
         self.angular_velocity_radps: float = 0.0

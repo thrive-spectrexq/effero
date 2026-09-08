@@ -12,6 +12,7 @@ from effero.core.memory.semantic import SemanticMemory
 from effero.core.memory.working import WorkingMemory
 from effero.core.planner.planner import Planner
 from effero.core.router.router import ModelRouter
+from effero.safety.approval import ApprovalHandler
 from effero.safety.client import SafetyClient
 from effero.sdk.skill import SkillRegistry
 from effero.sdk.skill import registry as global_registry
@@ -30,7 +31,7 @@ class Agent:
         self,
         config: EfferoConfig | None = None,
         skills: SkillRegistry | None = None,
-        approval_handler=None,
+        approval_handler: ApprovalHandler | None = None,
         fleet: FleetCoordinator | None = None,
     ) -> None:
         self.config = config or EfferoConfig.load()

@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from effero import __version__
+
+if TYPE_CHECKING:
+    from effero.sdk.skill import SkillRegistry, SkillSpec
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +21,8 @@ logger = logging.getLogger(__name__)
 class MCPServer:
     """Serves Effero skills over the MCP protocol."""
 
-    def __init__(self, skills) -> None:
-        self.skills = skills  # SkillRegistry
+    def __init__(self, skills: SkillRegistry) -> None:
+        self.skills = skills
 
     async def handle_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle an incoming MCP JSON-RPC request."""
@@ -59,8 +62,8 @@ class MCPServer:
 
         return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
-    async def _call_tool(self, params: dict) -> dict:
-        name = params.get("name", "")
+    async def _call_tool(self, params: dict[str, Any]) -> dict[str, Any]:
+        name = str(params.get("name", ""))
         arguments = params.get("arguments", {})
         try:
             s = self.skills.get(name)
@@ -77,7 +80,7 @@ class MCPServer:
             return {"content": [{"type": "text", "text": str(e)}], "isError": True}
 
     @staticmethod
-    def _build_input_schema(skill_spec) -> dict:
+    def _build_input_schema(skill_spec: SkillSpec) -> dict[str, Any]:
         """Build JSON Schema for a skill's input parameters."""
         import inspect
 

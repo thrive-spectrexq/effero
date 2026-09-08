@@ -1,13 +1,13 @@
 //! `effero-safety-kerneld`: the safety kernel daemon.
 //!
-//! Loads a policy file and serves guardrail decisions over a Unix domain
+//! Loads a policy file and serves guardrail decisions over a TCP
 //! socket. See the crate README for the wire protocol and an example of
 //! calling this from Python.
 //!
 //! Usage:
-//!   effero-safety-kerneld [--policy <path>] [--socket <path>]
+//!   effero-safety-kerneld [--policy <path>] [--host <ip>] [--port <port>]
 //!
-//! Defaults: --policy policies/example.yaml --socket /tmp/effero-safety-kernel.sock
+//! Defaults: --policy policies/example.yaml --host 127.0.0.1 --port 9400
 //!
 //! (CLI parsing is done by hand rather than via a dependency such as
 //! `clap`, to keep this crate's dependency surface -- and therefore its

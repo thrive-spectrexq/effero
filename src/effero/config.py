@@ -95,3 +95,12 @@ class EfferoConfig(BaseModel):
         if env_var and (key := os.environ.get(env_var)):
             config.agent.model.api_key = key
         return config
+
+    def save(self, path: Path | str | None = None) -> Path:
+        """Serialize configuration model to YAML file."""
+        if path is None:
+            path = Path.cwd() / "effero.yaml"
+        target_path = Path(path)
+        data = self.model_dump(mode="python", exclude_none=True)
+        target_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+        return target_path
