@@ -97,3 +97,33 @@ async def test_tool_calls_in_response() -> None:
     assert len(resp.tool_calls) == 1
     assert resp.tool_calls[0].name == "test.skill"
     assert resp.tool_calls[0].arguments == {"x": 1}
+
+
+class AvailabilityCountingBackend(LLMBackend):
+    def __init__(self) -> None:
+        self.check_count = 0
+        self.complete_count = 0
+
+    async def complete(self, request: LLMRequest) -> LLMResponse:
+        self.complete_count += 1
+        return LLMResponse(content="ok", backend="counting")
+
+    async def is_available(self) -> bool:
+        self.check_count += 1
+        return True
+
+
+@pytest.mark.asyncio
+async def test_availability_caching() -> None:
+    config = ModelConfig(backend="openai", model="test")
+    router = ModelRouter(config)
+    counting = AvailabilityCountingBackend()
+    router.backends = [counting]
+
+    request = LLMRequest(messages=[{"role": "user", "content": "test"}])
+    for _ in range(5):
+        await router.complete(request)
+
+    # complete() was called 5 times, but is_available() should only be called once due to caching!
+    assert counting.complete_count == 5
+    assert counting.check_count == 1

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from effero.config import EfferoConfig
+from effero.core.callbacks.base import AgentCallback, CallbackList
 from effero.core.event_bus import EventBus
 from effero.core.fleet.coordinator import FleetCoordinator
 from effero.core.memory.episodic import EpisodicMemory
@@ -24,7 +26,7 @@ class Agent:
     """The top-level Effero agent.
 
     Wires together: config, event bus, skills, memory, model router,
-    safety client, planner, and perception pipelines.
+    safety client, planner, callbacks, and perception pipelines.
     """
 
     def __init__(
@@ -33,6 +35,7 @@ class Agent:
         skills: SkillRegistry | None = None,
         approval_handler: ApprovalHandler | None = None,
         fleet: FleetCoordinator | None = None,
+        callbacks: list[AgentCallback] | CallbackList | None = None,
     ) -> None:
         self.config = config or EfferoConfig.load()
         self.event_bus = EventBus()
@@ -41,6 +44,7 @@ class Agent:
         self.episodic_memory = EpisodicMemory()
         self.semantic_memory = SemanticMemory()
         self.router = ModelRouter(self.config.agent.model)
+        self.callbacks = callbacks if isinstance(callbacks, CallbackList) else CallbackList(callbacks)
         self.safety: SafetyClient | None = None
         if self.config.safety.enabled:
             self.safety = SafetyClient(
@@ -76,21 +80,30 @@ class Agent:
             skills=self.skills,
             safety_client=self.safety,
             approval_handler=self.approval_handler,
+            callbacks=self.callbacks,
         )
 
     async def run(self, instruction: str) -> str:
         """Execute an instruction through the planner loop."""
         logger.info(f"Agent '{self.config.agent.name}' processing: {instruction}")
-        result = await self.planner.run(instruction)
-        # Record to episodic memory
-        self.episodic_memory.record(
-            "interaction",
-            {
-                "instruction": instruction,
-                "response": result,
-            },
-        )
-        return result
+        t0 = time.perf_counter()
+        self.callbacks.on_agent_start(instruction)
+        try:
+            result = await self.planner.run(instruction)
+            elapsed = time.perf_counter() - t0
+            self.callbacks.on_agent_finish(result, elapsed)
+            # Record to episodic memory
+            self.episodic_memory.record(
+                "interaction",
+                {
+                    "instruction": instruction,
+                    "response": result,
+                },
+            )
+            return result
+        except Exception as e:
+            self.callbacks.on_agent_error(e)
+            raise
 
     async def chat(self, message: str) -> str:
         """Single-turn chat interface."""

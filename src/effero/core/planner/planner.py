@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Any
+
+from effero.core.callbacks.base import CallbackList
 
 if TYPE_CHECKING:
     from effero.core.memory.working import WorkingMemory
@@ -38,6 +41,7 @@ class Planner:
         skills: SkillRegistry,
         safety_client: SafetyClient | None = None,
         approval_handler: ApprovalHandler | None = None,
+        callbacks: CallbackList | None = None,
         max_iterations: int = 10,
     ) -> None:
         self.router = router
@@ -45,6 +49,7 @@ class Planner:
         self.skills = skills
         self.safety = safety_client  # SafetyClient or None
         self.approval_handler = approval_handler  # ApprovalHandler or None
+        self.callbacks = callbacks or CallbackList()
         self.max_iterations = max_iterations
 
     async def run(self, instruction: str) -> str:
@@ -63,6 +68,7 @@ class Planner:
                 tools=tools if tools else None,
             )
             response = await self.router.complete(request)
+            self.callbacks.on_plan_generated(response)
 
             # If LLM responded with text and no tool calls, we're done
             if response.content and not response.tool_calls:
@@ -115,6 +121,7 @@ class Planner:
                 action = decision.get("decision", "allow")
                 if action == "deny":
                     reason = decision.get("reason", "Policy denied this action")
+                    self.callbacks.on_safety_check(name, args, approved=False, reason=reason)
                     return {"error": f"Safety policy denied: {reason}"}
                 elif action == "require_approval":
                     needs_approval = True
@@ -135,16 +142,23 @@ class Planner:
             approval_res = await self.approval_handler.request_approval(approval_req)
             if not approval_res.approved:
                 logger.warning(f"Skill execution denied by operator: {name}")
-                return {
-                    "error": f"Action unauthorized by human operator: {approval_res.comment or 'Permission denied'}"
-                }
+                reason = approval_res.comment or "Permission denied by operator"
+                self.callbacks.on_safety_check(name, args, approved=False, reason=reason)
+                return {"error": f"Action unauthorized by human operator: {reason}"}
 
+        self.callbacks.on_safety_check(name, args, approved=True, reason=None)
+        self.callbacks.on_skill_before_execute(name, args)
+        t0 = time.perf_counter()
         try:
             result = skill_spec(**args)
             if hasattr(result, "__await__"):
                 result = await result
+            elapsed = time.perf_counter() - t0
+            self.callbacks.on_skill_after_execute(name, result, elapsed)
             return result
         except Exception as e:
+            elapsed = time.perf_counter() - t0
+            self.callbacks.on_skill_after_execute(name, {"error": str(e)}, elapsed)
             logger.error(f"Skill {name} failed: {e}")
             return {"error": str(e)}
 

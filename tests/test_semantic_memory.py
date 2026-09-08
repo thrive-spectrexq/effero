@@ -93,3 +93,21 @@ def test_delete_and_clear() -> None:
 
     mem.clear()
     assert mem.count() == 0
+
+
+def test_indexed_search_scalability() -> None:
+    mem = SemanticMemory()
+    # Store 200 distinct facts across various topics
+    for i in range(200):
+        mem.store(f"Sensor diagnostic log entry #{i} status ok", {"seq": i})
+
+    # Store a specific target knowledge record
+    mem.store("Special payload target: deploy landing gear at waypoint alpha")
+
+    assert mem.count() == 201
+    assert len(mem._dim_index) > 0
+
+    results = mem.search("deploy landing gear waypoint alpha", top_k=3)
+    assert len(results) == 3
+    assert "landing gear" in results[0].text
+    assert results[0].score > 0.3

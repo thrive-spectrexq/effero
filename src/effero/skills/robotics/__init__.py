@@ -50,8 +50,17 @@ from effero.skills.robotics.trajectory import (
     QuinticPolynomial,
     TrajectoryPoint,
 )
+from effero.skills.robotics.transforms import (
+    Transform2D,
+    Transform3D,
+    wrap_angle,
+)
 
 __all__ = [
+    # Spatial Algebra & Coordinate Frames
+    "wrap_angle",
+    "Transform2D",
+    "Transform3D",
     # Kinematics & Controllers
     "JointConfiguration",
     "ArmKinematicModel",

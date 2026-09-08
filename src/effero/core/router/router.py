@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from effero.config import ModelConfig
 from effero.core.router.base import LLMBackend, LLMRequest, LLMResponse
@@ -11,10 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class ModelRouter:
-    """Routes LLM requests to the configured backends with fallback support."""
+    """Routes LLM requests to the configured backends with fallback support and cached availability."""
 
-    def __init__(self, config: ModelConfig) -> None:
+    def __init__(self, config: ModelConfig, availability_cache_ttl: float = 300.0) -> None:
         self.config = config
+        self.availability_cache_ttl = availability_cache_ttl
+        self._availability_cache: dict[int, tuple[bool, float]] = {}
         self.backends: list[LLMBackend] = []
 
         # Primary backend
@@ -31,6 +34,24 @@ class ModelRouter:
                 fallback_backend = self._create_backend(provider, model, config)
                 self.backends.append(fallback_backend)
 
+    async def _check_backend_available(self, backend: LLMBackend) -> bool:
+        """Check availability with TTL caching to prevent repeated network health checks."""
+        backend_id = id(backend)
+        now = time.time()
+        if backend_id in self._availability_cache:
+            is_avail, cached_at = self._availability_cache[backend_id]
+            ttl = self.availability_cache_ttl if is_avail else 30.0
+            if (now - cached_at) < ttl:
+                return is_avail
+
+        is_avail = await backend.is_available()
+        self._availability_cache[backend_id] = (is_avail, now)
+        return is_avail
+
+    def clear_availability_cache(self) -> None:
+        """Clear cached availability status for all backends."""
+        self._availability_cache.clear()
+
     async def complete(self, request: LLMRequest) -> LLMResponse:
         """Send request trying primary and fallbacks in order."""
         errors = []
@@ -38,15 +59,19 @@ class ModelRouter:
         for _i, backend in enumerate(self.backends):
             backend_name = backend.__class__.__name__
 
-            if not await backend.is_available():
+            if not await self._check_backend_available(backend):
                 errors.append(f"{backend_name} is not available (check installed packages and API keys).")
                 continue
 
             try:
                 logger.debug(f"Attempting completion with {backend_name}")
                 response = await backend.complete(request)
+                # Mark backend as confirmed available
+                self._availability_cache[id(backend)] = (True, time.time())
                 return response
             except Exception as e:
+                # Evict from cache on error so subsequent requests can re-evaluate
+                self._availability_cache.pop(id(backend), None)
                 msg = f"{backend_name} error: {e}"
                 logger.warning(msg)
                 errors.append(msg)

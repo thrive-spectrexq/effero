@@ -36,16 +36,47 @@ class EpisodicMemory:
             logger.error(f"Failed to write episodic memory: {e}")
 
     def load_history(self, limit: int = 100) -> list[dict[str, Any]]:
-        if not self.session_path.exists():
+        """Load the most recent episodic events from disk without reading the full file into RAM."""
+        if not self.session_path.exists() or limit <= 0:
             return []
 
-        entries = []
+        entries: list[dict[str, Any]] = []
+        chunk_size = 8192
+
         try:
-            with open(self.session_path) as f:
-                lines = f.readlines()
-                for line in lines[-limit:]:
-                    if line.strip():
-                        entries.append(json.loads(line))
+            with open(self.session_path, "rb") as f:
+                f.seek(0, 2)
+                file_size = f.tell()
+                pos = file_size
+                buffer = b""
+
+                while pos > 0 and len(entries) < limit:
+                    read_size = min(chunk_size, pos)
+                    pos -= read_size
+                    f.seek(pos)
+                    chunk = f.read(read_size)
+                    buffer = chunk + buffer
+
+                    lines = buffer.split(b"\n")
+                    buffer = lines[0]
+
+                    for raw_line in reversed(lines[1:]):
+                        line_str = raw_line.decode("utf-8", errors="replace").strip()
+                        if line_str and len(entries) < limit:
+                            try:
+                                entries.append(json.loads(line_str))
+                            except json.JSONDecodeError:
+                                continue
+
+                if pos == 0 and buffer.strip() and len(entries) < limit:
+                    line_str = buffer.decode("utf-8", errors="replace").strip()
+                    if line_str:
+                        try:
+                            entries.append(json.loads(line_str))
+                        except json.JSONDecodeError:
+                            pass
+
+            entries.reverse()
         except Exception as e:
             logger.error(f"Failed to read episodic memory: {e}")
 
