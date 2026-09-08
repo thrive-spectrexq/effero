@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-08
+
 ### Added
 - **2D Occupancy Grid Map (`skills.robotics.grid_map`)**:
   - Discrete spatial rasterization supporting points, bounding boxes, circles, and walls via Bresenham line raycasting.
