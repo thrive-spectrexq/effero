@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.4] - 2026-09-08
 
 ### Added
 - **Extended Kalman Filter (EKF) Localization (`skills.robotics.localization.ekf`)**:
@@ -14,6 +14,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Absolute Cartesian position fix fusion (GPS, UWB, or vision fiducials) with dynamic sensor variance weighting.
   - Continuous 2-sigma spatial uncertainty radius computation reported via real-time telemetry.
   - Exposed via `@skill(name="robotics.navigate.localize_predict")`, `@skill(name="robotics.navigate.localize_landmark")`, and `@skill(name="robotics.navigate.localize_position_fix")`.
+- **Pandas-Inspired Time-Series Buffers & Rolling Window Analytics (`core.memory.timeseries`)**:
+  - `TimeSeriesRingBuffer`: fixed-capacity chronological buffer with linear numeric interpolation.
+  - `RollingWindowView`: `.mean()`, `.min()`, `.max()`, `.std()`, and `.rate_of_change()` over configurable trailing time windows.
+  - Seamlessly integrated into `WorkingMemory.rolling_metric(name, seconds)`.
+- **Keras & PyTorch-Inspired Lifecycle Callbacks (`core.callbacks`)**:
+  - `AgentCallback` base class with default no-op hooks and `CallbackList` managing event dispatch with exception isolation.
+  - `TelemetryCallback` computing latency distributions, execution counts, and safety approval tallies.
+  - `AuditLogCallback` producing an immutable, append-only audit trail of prompts, planning decisions, safety checks, and tool invocations.
+  - Integrated directly into `Agent.run()` and `Planner`.
+- **Scikit-learn-Inspired Composable Pipelines (`pipelines`)**:
+  - Typed `PipelineStage` and `Pipeline` with UNIX-style pipe chaining operator `|` (`pipeline = stage1 | stage2 | stage3`).
+  - Pre-built stages: `FunctionStage` (sync/async callables), `FilterStage` (predicate filtering), `MapStage` (item transformations), and `ParallelBranchStage` (concurrent async execution).
+- **NumPy Robotics-Inspired Spatial Transformation Algebra (`skills.robotics.transforms`)**:
+  - `Transform2D` ($SE(2)$) and `Transform3D` ($SE(3)$) with matrix multiplication `@` composition.
+  - Analytical matrix inversion ($R^T, -R^T t$) with zero numerical drift.
+  - Bidirectional point transformations, Euclidean distance, angular distance, and unit quaternion conversions.
+
+### Fixed & Optimized
+- **ModelRouter Availability Check Latency ([#1](https://github.com/thrive-spectrexq/effero/issues/1))**:
+  - Added TTL availability caching (`availability_cache_ttl=300.0s`) in `ModelRouter`, eliminating redundant network health checks on every completion.
+- **EventBus History Trimming ([#2](https://github.com/thrive-spectrexq/effero/issues/2))**:
+  - Replaced `list.pop(0)` with `collections.deque(maxlen=max_history)` for bounded $O(1)$ auto-eviction without list reallocations.
+- **EventBus Subscriber Pattern Dispatch ([#3](https://github.com/thrive-spectrexq/effero/issues/3))**:
+  - Separated exact topic subscriptions ($O(1)$ hash table lookup) and pre-compiled wildcard subscriptions (`re.Pattern`), eliminating per-publish `fnmatch()` overhead.
+- **SemanticMemory Vector Search ([#4](https://github.com/thrive-spectrexq/effero/issues/4))**:
+  - Added spatial inverted dimension indexing to prune orthogonal vectors across large knowledge bases.
+  - Replaced $O(N \log N)$ sorting with `heapq.nlargest` for $O(N \log k)$ top-k extraction.
+  - Optimized cosine similarity dot product avoiding intermediate `zip()` allocations.
+- **EpisodicMemory Load History ([#5](https://github.com/thrive-spectrexq/effero/issues/5))**:
+  - Replaced full file `readlines()` with reverse binary chunk reading (`seek(0, 2)` with 8KB buffers) to bound memory footprint to $O(\text{limit})$.
+- **WorkingMemory Trimming Allocations ([#6](https://github.com/thrive-spectrexq/effero/issues/6))**:
+  - Optimized `_trim()` by reverse-scanning to collect non-system messages up to `num_to_keep`, eliminating 3 intermediate list allocations and applying in-place slice mutation.
+
 
 ## [0.1.3] - 2026-09-08
 

@@ -4,7 +4,7 @@ computers, robots, and connected devices.
 See the top-level README.md for the full architecture and philosophy.
 """
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 from typing import Any
