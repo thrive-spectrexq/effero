@@ -109,15 +109,19 @@ async def test_max_iterations() -> None:
 
 
 class _FakeSafetyClient:
-    def __init__(self, decision: str = "allow", reason: str = ""):
+    def __init__(self, decision: str = "allow", reason: str = "", limit: dict[str, float] | None = None):
         self.connected = True
         self.decision = decision
         self.reason = reason
+        self.limit = limit
         self.recorded_calls: list[tuple[str, dict]] = []
 
     async def check_action(self, skill_name: str, facts: dict | None = None) -> dict:
         self.recorded_calls.append((skill_name, facts or {}))
-        return {"decision": self.decision, "reason": self.reason}
+        resp = {"decision": self.decision, "reason": self.reason}
+        if self.limit is not None:
+            resp["limit"] = self.limit
+        return resp
 
 
 @pytest.mark.asyncio
@@ -199,3 +203,55 @@ async def test_safety_kernel_deny_decision() -> None:
     tool_msgs = [m for m in memory.get_context() if m.get("role") == "tool"]
     assert len(tool_msgs) == 1
     assert "Safety policy denied: Proximity violation" in str(tool_msgs[0].get("content"))
+
+
+@pytest.mark.asyncio
+async def test_safety_kernel_limit_clamping() -> None:
+    """Verify safety limit decision clamps excessive argument values down to maximum safe limit."""
+    fake_safety = _FakeSafetyClient(
+        decision="limit",
+        reason="Human within 1m: speed clamped to 0.5 m/s",
+        limit={"max_speed": 0.5},
+    )
+    memory = WorkingMemory()
+
+    def navigate_fn(speed: float) -> str:
+        return f"Moving at speed {speed}"
+
+    spec = SkillSpec(
+        name="robotics.navigate",
+        description="Navigate robot",
+        safety_class=SafetyClass.ACT_AUTONOMOUS,
+        func=navigate_fn,
+        signature=inspect.signature(navigate_fn),
+    )
+    functools.update_wrapper(spec, navigate_fn)
+    skills = SkillRegistry()
+    skills.register(spec)
+
+    router = ScriptedBackend(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="robotics.navigate", arguments={"speed": 2.5})],
+            ),
+            LLMResponse(content="Action executed at reduced speed."),
+        ]
+    )
+
+    planner = Planner(router=router, memory=memory, skills=skills, safety_client=fake_safety)  # type: ignore[arg-type]
+    result = await planner.run("Drive forward at 2.5 m/s")
+    assert result == "Action executed at reduced speed."
+
+    tool_msgs = [m for m in memory.get_context() if m.get("role") == "tool"]
+    assert len(tool_msgs) == 1
+    # Check that the tool result was indeed clamped to 0.5
+    assert "Moving at speed 0.5" in str(tool_msgs[0].get("content"))
+
+    # Also verify the safety clamping event was recorded in memory
+    memory_thoughts = [
+        m.get("content")
+        for m in memory.get_context()
+        if "Clamped 'robotics.navigate' argument 'speed' from 2.5 to 0.5" in str(m.get("content"))
+    ]
+    assert len(memory_thoughts) == 1

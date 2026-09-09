@@ -14,15 +14,16 @@ def test_websocket_events_connect_and_ping() -> None:
     app = create_app(agent=agent)
 
     with TestClient(app) as client:
-        with client.websocket_connect("/ws/events") as websocket:
+        with client.websocket_connect(f"/ws/events?token={agent.server_api_key}") as websocket:
             websocket.send_text("ping")
 
 
 def test_approvals_api_endpoints() -> None:
     agent = Agent()
     app = create_app(agent=agent)
+    headers = {"Authorization": f"Bearer {agent.server_api_key}"}
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=headers) as client:
         # Initially empty
         resp = client.get("/v1/approvals")
         assert resp.status_code == 200
@@ -63,8 +64,9 @@ def test_approvals_api_endpoints() -> None:
 def test_working_and_episodic_memory_endpoints() -> None:
     agent = Agent()
     app = create_app(agent=agent)
+    headers = {"Authorization": f"Bearer {agent.server_api_key}"}
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=headers) as client:
         agent.working_memory.add_message("user", "Hello world memory test")
         resp_working = client.get("/v1/memory/working")
         assert resp_working.status_code == 200

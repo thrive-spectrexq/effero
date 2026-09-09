@@ -37,6 +37,8 @@ pub struct GuardrailResult {
     pub decision: Decision,
     pub matched_rule: Option<String>,
     pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<std::collections::HashMap<String, f64>>,
 }
 
 struct CompiledRule {
@@ -78,6 +80,7 @@ impl Engine {
                     decision: compiled.rule.action.into(),
                     matched_rule: Some(compiled.rule.id.clone()),
                     reason: compiled.rule.description.clone(),
+                    limit: compiled.rule.limit.clone(),
                 };
             }
         }
@@ -89,6 +92,7 @@ impl Engine {
                 "no policy rule matched skill '{skill_name}' under the current facts; \
                  falling back to the configured default action"
             ),
+            limit: None,
         }
     }
 }
@@ -113,6 +117,13 @@ rules:
     applies_to: ["iot.sensors.read_*"]
     condition: "true"
     action: allow
+  - id: limit-manipulator-speed
+    description: "Limit arm speed near humans"
+    applies_to: ["robotics.arm_*"]
+    condition: "near_human"
+    action: limit
+    limit:
+      max_speed_mps: 0.5
 defaults:
   unknown_skill_action: require_approval
 "#;
@@ -128,6 +139,20 @@ defaults:
         let result = engine.evaluate("iot.locks.front_door", &facts);
         assert_eq!(result.decision, Decision::RequireApproval);
         assert_eq!(result.matched_rule.as_deref(), Some("no-exterior-unlock-at-night"));
+        assert!(result.limit.is_none());
+    }
+
+    #[test]
+    fn matches_limit_rule() {
+        let engine = Engine::load(test_policy()).unwrap();
+        let mut facts = Facts::new();
+        facts.insert("near_human".to_string(), Fact::Bool(true));
+
+        let result = engine.evaluate("robotics.arm_move", &facts);
+        assert_eq!(result.decision, Decision::Limit);
+        assert_eq!(result.matched_rule.as_deref(), Some("limit-manipulator-speed"));
+        let limit = result.limit.expect("expected limit map");
+        assert_eq!(limit.get("max_speed_mps"), Some(&0.5));
     }
 
     #[test]

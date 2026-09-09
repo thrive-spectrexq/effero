@@ -100,12 +100,32 @@ def create_app(agent: Agent | None = None) -> FastAPI:
         )
 
     # API Authentication Setup
-    expected_api_key = agent.config.server.api_key if agent.config and agent.config.server else None
-    if not expected_api_key:
+    # Default-safe: if no api_key is configured and no_auth is False, generate an ephemeral token
+    # (Jupyter pattern) so endpoints are never left open to the network by default.
+    no_auth_configured = bool(agent.config and agent.config.server and agent.config.server.no_auth)
+    raw_api_key = agent.config.server.api_key if agent.config and agent.config.server else None
+
+    if no_auth_configured or raw_api_key == "":
+        expected_api_key = None
         logger.warning(
-            "Effero API server is running without an API key. "
+            "Effero API server is running without authentication (--no-auth). "
             "Anyone who can reach this host can invoke skills or resolve approvals."
         )
+    elif raw_api_key:
+        expected_api_key = raw_api_key
+        agent.server_api_key = expected_api_key
+    else:
+        # Default-safe ephemeral token
+        expected_api_key = secrets.token_urlsafe(24)
+        if agent.config and agent.config.server:
+            agent.config.server.api_key = expected_api_key
+        agent.server_api_key = expected_api_key
+        logger.info(
+            f"Generated ephemeral API key: {expected_api_key} "
+            "(pass via 'Authorization: Bearer <token>' or 'X-API-Key: <token>')"
+        )
+
+    app.state.api_key = expected_api_key
 
     async def verify_auth(request: Request) -> None:
         if not expected_api_key:
@@ -328,9 +348,6 @@ def create_app(agent: Agent | None = None) -> FastAPI:
 
     @app.get("/v1/tasks/{task_id}", dependencies=[Depends(verify_auth)])
     async def get_a2a_task(task_id: str):
-        if task_id not in tasks:
-            raise HTTPException(status_code=404, detail="Task not found")
-        return tasks[task_id].to_dict()
         if task_id not in tasks:
             raise HTTPException(status_code=404, detail="Task not found")
         return tasks[task_id].to_dict()

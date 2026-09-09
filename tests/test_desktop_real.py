@@ -21,12 +21,17 @@ import pytest
 import effero.skills.computer_use as cu
 from effero.sdk.skill import SafetyClass, registry
 from effero.skills.computer_use.desktop import (
+    DesktopBackend,
     DesktopController,
     DestructiveHotkeyError,
     DestructiveHotkeyFilter,
+    HeadlessDesktopBackend,
+    LinuxDesktopBackend,
     SafetyBoundingBox,
     SafetyViolationError,
+    Win32DesktopBackend,
     WindowInfo,
+    get_default_desktop_backend,
 )
 
 IS_WINDOWS = sys.platform == "win32"
@@ -589,3 +594,155 @@ def test_controller_window_geometry_transforms(controller: DesktopController) ->
 
     c_x, c_y = controller.screen_to_client(0, s_x, s_y)
     assert isinstance(c_x, int) and isinstance(c_y, int)
+
+
+# ============================================================================
+# 7. Cross-Platform DesktopBackend Tests
+# ============================================================================
+
+
+def test_get_default_desktop_backend() -> None:
+    """Verify get_default_desktop_backend returns a valid DesktopBackend instance."""
+    backend = get_default_desktop_backend()
+    assert isinstance(backend, DesktopBackend)
+    if IS_WINDOWS:
+        assert isinstance(backend, Win32DesktopBackend)
+
+
+def test_headless_desktop_backend_lifecycle() -> None:
+    """Verify HeadlessDesktopBackend in-memory mouse, keyboard, and window state manipulation."""
+    backend = HeadlessDesktopBackend(screen_width=1280, screen_height=720)
+    assert backend.get_screen_size() == (1280, 720)
+    assert backend.get_cursor_position() == (640, 360)
+
+    # Mouse positioning and moving
+    backend.set_cursor_position(100, 200)
+    assert backend.get_cursor_position() == (100, 200)
+    backend.move_mouse(300, 400)
+    assert backend.get_cursor_position() == (300, 400)
+
+    # Mouse actions
+    backend.click_mouse(button="left", clicks=1)
+    assert len(backend.clicks) == 1
+    assert backend.clicks[0]["button"] == "left"
+
+    backend.double_click(button="right")
+    assert len(backend.clicks) == 2
+
+    backend.mouse_drag(10, 10, 50, 50, button="left")
+    assert backend.get_cursor_position() == (50, 50)
+
+    # Keyboard actions
+    backend.type_text("Test virtual typing")
+    assert "Test virtual typing" in backend.typed_text
+
+    backend.press_key("enter")
+    assert "enter" in backend.pressed_keys
+
+    backend.send_hotkey(["ctrl", "c"])
+    assert ["ctrl", "c"] in backend.sent_hotkeys
+
+    # Virtual Windows
+    win = backend.add_virtual_window(
+        hwnd=9001,
+        title="Virtual Terminal",
+        x=50,
+        y=60,
+        width=600,
+        height=400,
+        is_active=True,
+        process_id=4242,
+    )
+    assert win.hwnd == 9001
+    assert win.title == "Virtual Terminal"
+
+    wins = backend.list_windows()
+    assert len(wins) == 1
+    assert wins[0].hwnd == 9001
+
+    active = backend.get_active_window()
+    assert active is not None
+    assert active.hwnd == 9001
+
+    by_hwnd = backend.get_window_by_hwnd(9001)
+    assert by_hwnd is not None
+    assert by_hwnd.title == "Virtual Terminal"
+
+    by_title = backend.get_window_by_title("terminal")
+    assert by_title is not None
+    assert by_title.hwnd == 9001
+
+    # Coordinate mapping for virtual window
+    screen_pt = backend.client_to_screen(9001, 10, 10)
+    assert screen_pt == (60, 70)
+    client_pt = backend.screen_to_client(9001, 60, 70)
+    assert client_pt == (10, 10)
+
+    rect = backend.get_window_rect(9001)
+    assert rect == (50, 60, 650, 460)
+
+    # Window geometry manipulation
+    moved = backend.move_window(9001, 80, 90, 700, 500)
+    assert moved is True
+    assert backend.get_window_by_hwnd(9001).x == 80  # type: ignore[union-attr]
+
+    assert backend.minimize_window(9001) is True
+    assert backend.maximize_window(9001) is True
+    assert backend.restore_window(9001) is True
+
+    # Close window
+    closed = backend.close_window(9001)
+    assert closed is True
+    assert len(backend.list_windows()) == 0
+
+
+def test_desktop_controller_with_headless_backend() -> None:
+    """Verify DesktopController safety bounding and hotkey filtering works identically with HeadlessBackend."""
+    backend = HeadlessDesktopBackend(screen_width=1920, screen_height=1080)
+    controller = DesktopController(backend=backend)
+
+    assert controller.get_screen_size() == (1920, 1080)
+
+    # Safety bounds raise policy
+    box = SafetyBoundingBox(min_x=100, min_y=100, max_x=500, max_y=500)
+    controller.set_safety_bounds(box, policy="raise")
+
+    # In bounds
+    assert controller.move_mouse(200, 200) == (200, 200)
+
+    # Out of bounds raises
+    with pytest.raises(SafetyViolationError):
+        controller.move_mouse(50, 50)
+
+    # Safety bounds clamp policy
+    controller.set_safety_bounds(box, policy="clamp")
+    assert controller.move_mouse(50, 50) == (100, 100)
+    assert controller.move_mouse(600, 700) == (500, 500)
+
+    # Destructive hotkey filter
+    with pytest.raises(DestructiveHotkeyError):
+        controller.send_hotkey(["alt", "f4"])
+
+    controller.send_hotkey(["ctrl", "v"])
+    assert ["ctrl", "v"] in backend.sent_hotkeys
+
+
+def test_linux_desktop_backend_graceful_fallback() -> None:
+    """Verify LinuxDesktopBackend executes cleanly with virtual fallback in environments without display/xdotool."""
+    linux_backend = LinuxDesktopBackend()
+    assert isinstance(linux_backend, DesktopBackend)
+
+    w, h = linux_backend.get_screen_size()
+    assert w > 0
+    assert h > 0
+
+    pos = linux_backend.get_cursor_position()
+    assert len(pos) == 2
+
+    # Should execute safely without raising even if xdotool/wmctrl is absent
+    linux_backend.click_mouse(button="left", clicks=1)
+    linux_backend.type_text("linux automation test")
+    linux_backend.press_key("space")
+    linux_backend.send_hotkey(["ctrl", "s"])
+    wins = linux_backend.list_windows()
+    assert isinstance(wins, list)

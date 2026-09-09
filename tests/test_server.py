@@ -14,7 +14,9 @@ from effero.safety.approval import AutoApprovalHandler
 def api_client():
     agent = Agent(approval_handler=AutoApprovalHandler(approve_all=True))
     app = create_app(agent=agent)
-    with TestClient(app) as client:
+    token = getattr(agent, "server_api_key", None)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    with TestClient(app, headers=headers) as client:
         yield client, agent
 
 
@@ -175,3 +177,51 @@ def test_server_cors_configuration() -> None:
     assert len(cors_middleware2) == 1
     assert cors_middleware2[0].kwargs.get("allow_origins") == ["https://dashboard.effero.io"]
     assert cors_middleware2[0].kwargs.get("allow_credentials") is True
+
+
+def test_default_safe_ephemeral_token() -> None:
+    """Verify default server generates an ephemeral token and rejects unauthenticated requests."""
+    from unittest.mock import AsyncMock
+
+    agent = Agent()
+    assert agent.config.server.api_key is None
+    assert agent.config.server.no_auth is False
+
+    app = create_app(agent=agent)
+    assert hasattr(agent, "server_api_key")
+    assert agent.server_api_key is not None
+    assert len(agent.server_api_key) >= 24
+
+    agent.chat = AsyncMock(return_value="hello")  # type: ignore[method-assign]
+
+    with TestClient(app) as client:
+        # Public health check works without key
+        assert client.get("/health").status_code == 200
+
+        # Protected endpoint without key is rejected (401)
+        res_no_key = client.post("/v1/chat", json={"message": "ping"})
+        assert res_no_key.status_code == 401
+
+        # Protected endpoint with ephemeral token succeeds
+        res_auth = client.post(
+            "/v1/chat",
+            json={"message": "ping"},
+            headers={"Authorization": f"Bearer {agent.server_api_key}"},
+        )
+        assert res_auth.status_code == 200
+
+
+def test_server_no_auth_mode() -> None:
+    """Verify that when no_auth is True, protected endpoints allow requests without credentials."""
+    from unittest.mock import AsyncMock
+
+    agent = Agent()
+    agent.config.server.no_auth = True
+    agent.chat = AsyncMock(return_value="open hello")  # type: ignore[method-assign]
+
+    app = create_app(agent=agent)
+
+    with TestClient(app) as client:
+        res = client.post("/v1/chat", json={"message": "open ping"})
+        assert res.status_code == 200
+        assert res.json()["response"] == "open hello"

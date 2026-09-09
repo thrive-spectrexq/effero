@@ -148,6 +148,32 @@ class Planner:
                 elif action == "limit":
                     limit_info = decision.get("limit") or decision.get("reason") or "Action constrained by safety limit"
                     logger.info(f"Safety limit applied to skill '{name}': {limit_info}")
+                    limits_map = decision.get("limit")
+                    if isinstance(limits_map, dict):
+                        for limit_key, max_val in limits_map.items():
+                            if not isinstance(max_val, (int, float)):
+                                continue
+                            # Match exact key or common variants (e.g., max_speed_mps -> speed / speed_mps)
+                            for arg_key, arg_val in list(args.items()):
+                                if isinstance(arg_val, (int, float)) and not isinstance(arg_val, bool):
+                                    matches = (
+                                        arg_key == limit_key
+                                        or limit_key == f"max_{arg_key}"
+                                        or limit_key.startswith(f"max_{arg_key}_")
+                                        or arg_key.startswith(limit_key.removeprefix("max_").split("_")[0])
+                                    )
+                                    if matches and arg_val > max_val:
+                                        logger.warning(
+                                            f"Safety clamped '{arg_key}' of skill '{name}' "
+                                            f"from {arg_val} down to {max_val}"
+                                        )
+                                        args[arg_key] = type(arg_val)(max_val)
+                                        # Record clamping event in working memory
+                                        self.memory.add_message(
+                                            "system",
+                                            f"[Safety Limit] Clamped '{name}' argument '{arg_key}' "
+                                            f"from {arg_val} to {max_val} ({limit_info})",
+                                        )
             except Exception as e:
                 logger.warning(f"Safety check failed: {e} — proceeding with caution")
 

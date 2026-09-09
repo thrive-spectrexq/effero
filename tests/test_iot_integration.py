@@ -71,3 +71,47 @@ async def test_iot_sensors_and_thermostat_skills():
     m_set = await set_mode("main_hall", "heat")
     assert m_set["status"] == "success"
     assert m_set["mode"] == "heat"
+
+
+@pytest.mark.asyncio
+async def test_agent_iot_live_broker_connectivity():
+    """Test connecting to a live MQTT broker on port 1883 if reachable (e.g. in CI service container)."""
+    import asyncio
+    import socket
+
+    # Quick TCP probe to check if port 1883 is accepting connections
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.5)
+    try:
+        sock.connect(("127.0.0.1", 1883))
+        sock.close()
+    except (OSError, ConnectionRefusedError):
+        sock.close()
+        pytest.skip("No live MQTT broker listening on 127.0.0.1:1883")
+
+    cfg = EfferoConfig()
+    cfg.iot = IoTConfig(
+        enabled=True,
+        auto_connect=True,
+        broker_host="127.0.0.1",
+        broker_port=1883,
+    )
+
+    agent = Agent(config=cfg)
+    await agent.start()
+    try:
+        from effero.adapters.mqtt_matter.client import get_default_client
+
+        client = get_default_client(cfg.iot)
+        assert client.is_connected is True
+
+        # Test live roundtrip publish and subscribe
+        received: list[dict] = []
+        await client.subscribe("ci/test/live", lambda t, p: received.append(p))
+        await client.publish("ci/test/live", {"msg": "hello from CI", "broker": "mosquitto"})
+        await asyncio.sleep(0.1)
+
+        assert len(received) >= 1
+        assert received[0]["msg"] == "hello from CI"
+    finally:
+        await agent.stop()

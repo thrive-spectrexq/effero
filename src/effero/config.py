@@ -68,6 +68,7 @@ class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8000
     api_key: str | None = None
+    no_auth: bool = False
     cors_origins: list[str] = Field(default_factory=list)
 
 

@@ -164,6 +164,9 @@ def build_parser() -> argparse.ArgumentParser:
     serve_p = subparsers.add_parser("serve", help="Start HTTP & WebSocket API server")
     serve_p.add_argument("--host", default="0.0.0.0", help="Host to bind server (default: 0.0.0.0)")
     serve_p.add_argument("--port", type=int, default=8000, help="Port to bind server (default: 8000)")
+    serve_p.add_argument("--api-key", help="Static API key for authentication")
+    serve_p.add_argument("--no-auth", action="store_true", help="Disable API authentication (insecure)")
+    serve_p.add_argument("--config", help="Path to config file")
 
     config_p = subparsers.add_parser("config", help="Manage effero configuration")
     config_sub = config_p.add_subparsers(dest="config_action")
@@ -235,9 +238,18 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "serve":
         import uvicorn
 
+        from effero.config import EfferoConfig
+        from effero.core.agent import Agent
         from effero.interfaces.server import create_app
 
-        app = create_app()
+        cfg = EfferoConfig.load(getattr(args, "config", None))
+        if getattr(args, "api_key", None):
+            cfg.server.api_key = args.api_key
+        if getattr(args, "no_auth", False):
+            cfg.server.no_auth = True
+
+        agent = Agent(config=cfg)
+        app = create_app(agent=agent)
         uvicorn.run(app, host=args.host, port=args.port)
     elif args.command == "config":
         handle_config(args)
