@@ -57,6 +57,8 @@ class SafetyConfig(BaseModel):
     require_approval_for: list[str] = Field(default_factory=list)
     approval_mode: str = "console"
     auto_spawn: bool = True
+    heartbeat_enabled: bool = True
+    heartbeat_interval: float = 0.2
 
 
 class FleetConfig(BaseModel):

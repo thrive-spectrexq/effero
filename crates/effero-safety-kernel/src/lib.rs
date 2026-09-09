@@ -14,7 +14,9 @@ pub mod condition;
 pub mod engine;
 pub mod policy;
 pub mod server;
+pub mod watchdog;
 
 pub use condition::{Fact, Facts};
 pub use engine::{Decision, Engine, GuardrailResult};
 pub use policy::{Action, Policy, Rule};
+pub use watchdog::{Watchdog, WatchdogStatus};

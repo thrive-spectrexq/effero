@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any
@@ -48,6 +49,7 @@ class Agent:
         self.callbacks = callbacks if isinstance(callbacks, CallbackList) else CallbackList(callbacks)
         self.safety: SafetyClient | None = None
         self.safety_daemon: Any = None
+        self._heartbeat_task: asyncio.Task | None = None
         if self.config.safety.enabled:
             self.safety = SafetyClient(
                 host=self.config.safety.kernel_host,
@@ -151,11 +153,13 @@ class Agent:
             except Exception as e:
                 logger.warning(f"Safety daemon auto-spawn check failed: {e}")
 
-        # 2. Connect SafetyClient
+        # 2. Connect SafetyClient and spawn heartbeat task
         if self.safety:
             try:
                 await self.safety.connect()
                 logger.info("Connected to safety kernel")
+                if self.config.safety.heartbeat_enabled:
+                    self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
             except (ConnectionRefusedError, OSError) as e:
                 logger.warning(f"Safety kernel not running ({e}) — operating without guardrails")
                 self.safety = None
@@ -242,6 +246,14 @@ class Agent:
             except Exception:
                 pass
 
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
+            self._heartbeat_task = None
+
         if self.safety:
             await self.safety.close()
 
@@ -249,6 +261,19 @@ class Agent:
             await self.safety_daemon.stop()
 
         logger.info(f"Agent '{self.config.agent.name}' stopped")
+
+    async def _heartbeat_loop(self) -> None:
+        """Background task emitting heartbeats to safety kernel to keep deadman watchdog alive."""
+        interval = max(0.05, self.config.safety.heartbeat_interval)
+        while True:
+            try:
+                await asyncio.sleep(interval)
+                if self.safety and self.safety.connected:
+                    await self.safety.send_heartbeat()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"Heartbeat error: {e}")
 
     def _load_builtin_skills(self) -> None:
         """Import built-in skill modules to trigger @skill registration."""

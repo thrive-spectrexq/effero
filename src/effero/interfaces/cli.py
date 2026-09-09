@@ -181,6 +181,17 @@ def build_parser() -> argparse.ArgumentParser:
     cfg_get.add_argument("key", nargs="?", help="Key to read, or empty to display full config")
     cfg_get.add_argument("--config", help="Path to config file")
 
+    record_p = subparsers.add_parser("record", help="Record telemetry and sensor observations to .efflog file")
+    record_p.add_argument("output", help="Destination path for .efflog file")
+    record_p.add_argument("--filter", default="*", help="EventBus topic filter pattern (default: '*')")
+    record_p.add_argument("--duration", type=float, default=10.0, help="Duration in seconds to record")
+    record_p.add_argument("--config", help="Path to config file")
+
+    replay_p = subparsers.add_parser("replay", help="Replay sensor telemetry stream from .efflog file")
+    replay_p.add_argument("file", help="Path to .efflog file")
+    replay_p.add_argument("--speed", type=float, default=1.0, help="Playback speed multiplier (default: 1.0)")
+    replay_p.add_argument("--config", help="Path to config file")
+
     return parser
 
 
@@ -253,6 +264,10 @@ def main(argv: list[str] | None = None) -> int:
         uvicorn.run(app, host=args.host, port=args.port)
     elif args.command == "config":
         handle_config(args)
+    elif args.command == "record":
+        asyncio.run(handle_record(args))
+    elif args.command == "replay":
+        asyncio.run(handle_replay(args))
 
     return 0
 
@@ -321,3 +336,44 @@ def handle_config(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+async def handle_record(args: argparse.Namespace) -> None:
+    """Record event bus traffic to .efflog."""
+    from effero.config import EfferoConfig
+    from effero.core.agent import Agent
+    from effero.core.replay import ReplayRecorder
+
+    cfg = EfferoConfig.load(getattr(args, "config", None))
+    agent = Agent(config=cfg)
+    await agent.start()
+
+    recorder = ReplayRecorder(event_bus=agent.event_bus, output_path=args.output, topic_filter=args.filter)
+    recorder.start()
+    print(f"Recording events matching '{args.filter}' to {args.output} for {args.duration}s...")
+    try:
+        await asyncio.sleep(args.duration)
+    finally:
+        count = recorder.stop()
+        await agent.stop()
+        print(f"Recording complete. Captured {count} events.")
+
+
+async def handle_replay(args: argparse.Namespace) -> None:
+    """Replay events from .efflog file."""
+    from effero.config import EfferoConfig
+    from effero.core.agent import Agent
+    from effero.core.replay import ReplayPlayer
+
+    cfg = EfferoConfig.load(getattr(args, "config", None))
+    agent = Agent(config=cfg)
+    await agent.start()
+
+    player = ReplayPlayer(event_bus=agent.event_bus, log_path=args.file, speed=args.speed)
+    count = player.load()
+    print(f"Loaded {count} events from {args.file}. Starting playback at {args.speed}x speed...")
+    try:
+        played = await player.play()
+        print(f"Playback finished. Injected {played} events into EventBus.")
+    finally:
+        await agent.stop()

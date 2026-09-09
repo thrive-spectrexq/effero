@@ -24,6 +24,7 @@ class SafetyClient:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._connected = False
+        self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
         """Connect to the safety kernel."""
@@ -31,7 +32,25 @@ class SafetyClient:
         self._connected = True
         logger.info(f"Connected to safety kernel at {self.host}:{self.port}")
 
-    async def check_action(self, skill_name: str, facts: dict[str, Any] | None = None) -> dict:
+    async def _send_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Send a JSON request and read the JSON response under concurrency lock."""
+        if not self._connected:
+            await self.connect()
+
+        async with self._lock:
+            assert self._writer is not None
+            assert self._reader is not None
+            self._writer.write((json.dumps(request) + "\n").encode())
+            await self._writer.drain()
+
+            line = await self._reader.readline()
+            if not line:
+                self._connected = False
+                raise ConnectionError("Safety kernel closed the connection")
+
+            return json.loads(line.decode())
+
+    async def check_action(self, skill_name: str, facts: dict[str, Any] | None = None) -> dict[str, Any]:
         """Check whether an action is allowed by the safety policy.
 
         Args:
@@ -41,22 +60,25 @@ class SafetyClient:
         Returns:
             dict with 'decision' key: 'allow', 'require_approval', 'deny', or 'limit'
         """
-        if not self._connected:
-            await self.connect()
-
-        request = {"skill": skill_name, "facts": facts or {}}
-        assert self._writer is not None
-        assert self._reader is not None
-        self._writer.write((json.dumps(request) + "\n").encode())
-        await self._writer.drain()
-
-        line = await self._reader.readline()
-        if not line:
-            raise ConnectionError("Safety kernel closed the connection")
-
-        result = json.loads(line.decode())
+        request = {"type": "evaluate", "skill": skill_name, "facts": facts or {}}
+        result = await self._send_request(request)
         logger.debug(f"Safety check for '{skill_name}': {result}")
         return result
+
+    async def send_heartbeat(self) -> dict[str, Any]:
+        """Send a heartbeat to prevent the safety kernel watchdog from tripping."""
+        request = {"type": "heartbeat"}
+        return await self._send_request(request)
+
+    async def get_status(self) -> dict[str, Any]:
+        """Query safety kernel and watchdog status."""
+        request = {"type": "status"}
+        return await self._send_request(request)
+
+    async def reset_watchdog(self) -> dict[str, Any]:
+        """Reset the watchdog after a timeout trip."""
+        request = {"type": "reset_watchdog"}
+        return await self._send_request(request)
 
     async def close(self) -> None:
         """Close the connection."""
