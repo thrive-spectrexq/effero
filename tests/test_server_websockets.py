@@ -98,4 +98,3 @@ def test_websocket_authentication() -> None:
         # Connect with valid query param ?api_key=secure-ws-key should succeed
         with client.websocket_connect("/ws/events?api_key=secure-ws-key") as ws:
             ws.send_text("ping")
-

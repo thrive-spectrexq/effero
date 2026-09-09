@@ -188,9 +188,7 @@ class MQTTAdapter(DeviceAdapter):
 
         tls_note = " (TLS enabled)" if ssl_ctx is not None else ""
         logger.info(f"Connecting to MQTT broker at {self.broker_host}:{self.broker_port}{tls_note}...")
-        self._reader, self._writer = await asyncio.open_connection(
-            self.broker_host, self.broker_port, ssl=ssl_ctx
-        )
+        self._reader, self._writer = await asyncio.open_connection(self.broker_host, self.broker_port, ssl=ssl_ctx)
 
         # Send CONNECT packet
         conn_packet = ConnectPacket(

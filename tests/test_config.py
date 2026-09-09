@@ -93,4 +93,3 @@ def test_security_audit_warnings() -> None:
     warnings = config.validate_security()
     assert not any("server.api_key is not set" in w for w in warnings)
     assert any("IoT MQTT is enabled without TLS" in w for w in warnings)
-

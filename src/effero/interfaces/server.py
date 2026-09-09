@@ -100,11 +100,7 @@ def create_app(agent: Agent | None = None) -> FastAPI:
         )
 
     # API Authentication Setup
-    expected_api_key = (
-        agent.config.server.api_key
-        if agent.config and agent.config.server
-        else None
-    )
+    expected_api_key = agent.config.server.api_key if agent.config and agent.config.server else None
     if not expected_api_key:
         logger.warning(
             "Effero API server is running without an API key. "

@@ -161,9 +161,7 @@ def test_server_cors_configuration() -> None:
     agent_wildcard.config.server.cors_origins = []
     app_wildcard = create_app(agent=agent_wildcard)
 
-    cors_middleware = [
-        m for m in app_wildcard.user_middleware if "CORSMiddleware" in str(m.cls)
-    ]
+    cors_middleware = [m for m in app_wildcard.user_middleware if "CORSMiddleware" in str(m.cls)]
     assert len(cors_middleware) == 1
     assert cors_middleware[0].kwargs.get("allow_origins") == ["*"]
     assert cors_middleware[0].kwargs.get("allow_credentials") is False
@@ -173,10 +171,7 @@ def test_server_cors_configuration() -> None:
     agent_specific.config.server.cors_origins = ["https://dashboard.effero.io"]
     app_specific = create_app(agent=agent_specific)
 
-    cors_middleware2 = [
-        m for m in app_specific.user_middleware if "CORSMiddleware" in str(m.cls)
-    ]
+    cors_middleware2 = [m for m in app_specific.user_middleware if "CORSMiddleware" in str(m.cls)]
     assert len(cors_middleware2) == 1
     assert cors_middleware2[0].kwargs.get("allow_origins") == ["https://dashboard.effero.io"]
     assert cors_middleware2[0].kwargs.get("allow_credentials") is True
-
