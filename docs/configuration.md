@@ -8,9 +8,11 @@ Effero is configured via an `effero.yaml` file in your project root.
 agent:
   name: my-agent
   model:
-    backend: ollama          # ollama | openai | anthropic | google
-    model: qwen3:8b
-    fallback: []             # ordered list of fallback backends
+    backend: cactus          # cactus | ollama | openai | anthropic | google
+    model: cactus-7b
+    fallback: [openai:gpt-4o] # ordered list of fallback backends
+    min_confidence: 0.70     # confidence threshold for hybrid escalation
+    hybrid_cloud_fallback: true # escalate low-confidence local runs to cloud
 
 perception:
   audio:

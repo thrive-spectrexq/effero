@@ -15,6 +15,8 @@ class ModelConfig(BaseModel):
     fallback: list[str] = Field(default_factory=list)
     api_key: str | None = None
     base_url: str | None = None
+    min_confidence: float = 0.7
+    hybrid_cloud_fallback: bool = True
 
 
 class AudioConfig(BaseModel):

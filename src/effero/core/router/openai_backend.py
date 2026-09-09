@@ -78,12 +78,26 @@ class OpenAIBackend(LLMBackend):
                 "total_tokens": response.usage.total_tokens,
             }
 
+        confidence = getattr(choice, "confidence", None)
+        if confidence is None:
+            confidence = getattr(choice.message, "confidence", None)
+        if confidence is None:
+            confidence = getattr(response, "confidence", None)
+
+        conf_val: float | None = None
+        if confidence is not None:
+            try:
+                conf_val = float(confidence)
+            except (ValueError, TypeError):
+                pass
+
         return LLMResponse(
             content=choice.message.content,
             tool_calls=tool_calls,
             usage=usage,
             model=response.model,
             backend="openai",
+            confidence=conf_val,
         )
 
     async def is_available(self) -> bool:

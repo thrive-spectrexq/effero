@@ -36,6 +36,7 @@ class LLMResponse:
     usage: dict[str, int] = field(default_factory=dict)
     model: str = ""
     backend: str = ""
+    confidence: float | None = None
 
 
 class LLMBackend(ABC):

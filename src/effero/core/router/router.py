@@ -68,6 +68,22 @@ class ModelRouter:
                 response = await backend.complete(request)
                 # Mark backend as confirmed available
                 self._availability_cache[id(backend)] = (True, time.time())
+
+                # Check for hybrid cloud handoff (confidence-based escalation)
+                if (
+                    self.config.hybrid_cloud_fallback
+                    and _i < len(self.backends) - 1
+                    and response.confidence is not None
+                    and response.confidence < self.config.min_confidence
+                ):
+                    msg = (
+                        f"{backend_name} confidence ({response.confidence:.2f}) is below threshold "
+                        f"({self.config.min_confidence:.2f}). Escalating to fallback backend..."
+                    )
+                    logger.info(msg)
+                    errors.append(msg)
+                    continue
+
                 return response
             except Exception as e:
                 # Evict from cache on error so subsequent requests can re-evaluate
@@ -96,6 +112,14 @@ class ModelRouter:
             # Ollama and llama.cpp expose standard OpenAI-compatible /v1 endpoints
             base_url = config.base_url or "http://127.0.0.1:11434/v1"
             api_key = config.api_key or "ollama"
+            return OpenAIBackend(model=model, api_key=api_key, base_url=base_url)
+
+        elif provider == "cactus":
+            from effero.core.router.openai_backend import OpenAIBackend
+
+            # Cactus exposes an ultra-fast on-device OpenAI-compatible local server
+            base_url = config.base_url or "http://127.0.0.1:8080/v1"
+            api_key = config.api_key or "cactus"
             return OpenAIBackend(model=model, api_key=api_key, base_url=base_url)
 
         elif provider == "anthropic":
