@@ -12,6 +12,7 @@ from typing import Any
 
 import httpx
 
+from effero import __version__
 from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ class MCPClient:
                 {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {},
-                    "clientInfo": {"name": "effero-client", "version": "0.1.5"},
+                    "clientInfo": {"name": "effero-client", "version": __version__},
                 },
             )
             logger.debug(f"MCP server '{self.name}' initialized: {init_resp}")
@@ -98,7 +99,7 @@ class MCPClient:
                 {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {},
-                    "clientInfo": {"name": "effero-client", "version": "0.1.5"},
+                    "clientInfo": {"name": "effero-client", "version": __version__},
                 },
             )
             logger.debug(f"MCP HTTP server '{self.name}' initialized: {init_resp}")

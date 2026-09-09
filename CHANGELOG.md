@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-09-09
+
+### Added
+- **On-Device Inference & Confidence-Based Hybrid Cloud Handoff (Cactus Integration)**:
+  - Native `cactus` provider support in `ModelRouter` pointing to local high-performance runtime (`http://127.0.0.1:8080/v1`).
+  - Added `min_confidence` and `hybrid_cloud_fallback` options to `ModelConfig` for sub-100ms on-device reasoning with automatic escalation to cloud frontier models (GPT-4o, Claude) when local confidence falls below threshold.
+  - Documented INT4/INT8 quantization footprints and latency profiles in `docs/compatibility.md`.
+- **Google AI Edge LiteRT-LM In-Process Backend**:
+  - In-process `LiteRTLMBackend` executing `.litertlm` container models via `litert-lm-api` with zero daemon overhead.
+  - Direct hardware accelerator selection (`device: auto | cpu | gpu | npu`) supporting Raspberry Pi 5 AI HAT (Hailo-8/Coral), Jetson, and mobile edge NPUs.
+  - Optional dependency extra: `pip install effero[litert]`.
+- **Contract-Compliant Test Infrastructure & Code Quality**:
+  - Replaced ad-hoc mock classes and aliases with `ScriptedBackend` supporting sequential responses, dynamic generators, failure modes, and availability tracking.
+  - Hardened `MCPClient` protocol handling: catches `isError: True`, preserves JSON-RPC error details on HTTP failures, and avoids leaking pending futures.
+  - Dynamic `__version__` propagation in MCP handshake payloads.
+
 ## [0.1.5] - 2026-09-08
 
 ### Added
