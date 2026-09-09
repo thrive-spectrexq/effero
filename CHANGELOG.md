@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-09-09
+
+### Added
+- **Safety Kernel Live Telemetry & Environment Facts Wiring**:
+  - Connected `Planner._execute_skill()` and `Agent` to feed live robot telemetry (`robot_x`, `robot_y`, `robot_linear_velocity`, `robot_emergency_stopped`), battery levels, nearest person proximity metrics, and invocation parameters into `SafetyClient.check_action()`.
+  - Enabled dynamic safety rule enforcement based on actual physical runtime state.
+- **REST & WebSocket API Server Authentication**:
+  - Implemented token authentication (`Authorization: Bearer <key>` or `X-API-Key: <key>`) across sensitive endpoints (`/v1/chat`, `/v1/skills/invoke`, `/v1/approvals/*`, `/v1/memory/*`, `/v1/tasks/*`, and `/ws/*`).
+  - Hardened Human-In-The-Loop approval resolution to prevent unauthorized confirmation of restricted physical/digital actions.
+- **Spec-Compliant CORS Hardening**:
+  - Enforced CORS specification compliance (disallowed `allow_credentials=True` with wildcard `*` origins; enabled credentialed requests only for explicit configured origins).
+- **Shell Command Guardrails (`computer_use.shell`)**:
+  - Added pattern detection against destructive system commands (recursive root deletion, fork bombs, disk wiping, reboot/shutdown commands).
+  - Added command prefix allowlist filtering via argument and `EFFERO_SHELL_ALLOWLIST` environment variable.
+- **IoT MQTT TLS Encryption Support (`adapters.mqtt_matter`)**:
+  - Added native `ssl.SSLContext` negotiation, custom CA certificate loading, and mutual TLS certificate support to `MQTTAdapter`.
+  - Exposed TLS configuration in `IoTConfig` and `effero.yaml`.
+- **Configuration Security Auditing**:
+  - Added `EfferoConfig.validate_security()` to audit configurations and log security warnings for missing API keys, plaintext MQTT, or unverified certificates.
+  - Enforced `0o600` restrictive file permissions when saving config files.
+- **Python 3.13 CI Support**:
+  - Added Python 3.13 to the GitHub Actions CI matrix alongside Python 3.11 and 3.12.
+
+### Fixed
+- Fixed hanging condition in MQTT connection test under Python 3.11/3.13 by verifying SSL context creation deterministically without orphan background reader tasks.
+- Cleaned up formatting and import ordering across the codebase with `ruff format`.
+
 ## [0.1.7] - 2026-09-09
 
 ### Added
