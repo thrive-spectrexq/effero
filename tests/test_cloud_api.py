@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-import respx
 
 from effero.adapters.cloud_api.client import CloudAPIAdapter
 
@@ -26,11 +25,30 @@ async def test_cloud_api_lifecycle():
 
 
 @pytest.mark.asyncio
-@respx.mock
-async def test_cloud_api_execute_json_and_text():
-    respx.post("https://api.example.com/items").respond(200, json={"item_id": 42, "status": "created"})
-    respx.get("https://api.example.com/raw").respond(200, text="raw-response-text")
-    respx.get("https://api.example.com/").respond(200, json={"healthy": True, "version": "1.0"})
+async def test_cloud_api_no_httpx(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("effero.adapters.cloud_api.client.HAS_HTTPX", False)
+    adapter = CloudAPIAdapter(base_url="https://api.example.com")
+    with pytest.raises(RuntimeError, match="httpx is required"):
+        await adapter.connect()
+
+
+@pytest.mark.asyncio
+async def test_cloud_api_execute_json_and_text(monkeypatch: pytest.MonkeyPatch):
+    def handle_request(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/items" and request.method == "POST":
+            return httpx.Response(200, json={"item_id": 42, "status": "created"})
+        if request.url.path == "/raw" and request.method == "GET":
+            return httpx.Response(200, text="raw-response-text")
+        if request.url.path == "/" and request.method == "GET":
+            return httpx.Response(200, json={"healthy": True, "version": "1.0"})
+        return httpx.Response(404)
+
+    mock_transport = httpx.MockTransport(handle_request)
+    orig_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        "effero.adapters.cloud_api.client.httpx.AsyncClient",
+        lambda *args, **kwargs: orig_client(*args, transport=mock_transport, **kwargs),
+    )
 
     adapter = CloudAPIAdapter(base_url="https://api.example.com")
     await adapter.connect()
@@ -53,10 +71,20 @@ async def test_cloud_api_execute_json_and_text():
 
 
 @pytest.mark.asyncio
-@respx.mock
-async def test_cloud_api_error_handling():
-    respx.get("https://api.example.com/fail").respond(500, text="Internal Server Error")
-    respx.get("https://api.example.com/").respond(503, text="Service Unavailable")
+async def test_cloud_api_error_handling(monkeypatch: pytest.MonkeyPatch):
+    def handle_request(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/fail":
+            return httpx.Response(500, text="Internal Server Error")
+        if request.url.path == "/":
+            return httpx.Response(503, text="Service Unavailable")
+        return httpx.Response(404)
+
+    mock_transport = httpx.MockTransport(handle_request)
+    orig_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        "effero.adapters.cloud_api.client.httpx.AsyncClient",
+        lambda *args, **kwargs: orig_client(*args, transport=mock_transport, **kwargs),
+    )
 
     adapter = CloudAPIAdapter(base_url="https://api.example.com")
     await adapter.connect()
