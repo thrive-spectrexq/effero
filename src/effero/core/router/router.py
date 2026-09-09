@@ -137,5 +137,10 @@ class ModelRouter:
 
             return LiteRTLMBackend(model=model, device=config.device)
 
+        elif provider in ("scripted", "deterministic", "mock"):
+            from effero.core.router.scripted_backend import ScriptedBackend
+
+            return ScriptedBackend(model=model)
+
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

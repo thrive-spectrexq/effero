@@ -288,7 +288,7 @@ def test_topic_wildcard_matching():
 # ===========================================================================
 
 
-class MockLoopbackBroker:
+class LoopbackMQTTBroker:
     """Minimal genuine TCP MQTT 3.1.1 broker for in-process network testing."""
 
     def __init__(self, host: str = "127.0.0.1"):
@@ -399,7 +399,7 @@ class MockLoopbackBroker:
 @pytest.mark.asyncio
 async def test_live_mqtt_loopback_pubsub_and_wildcards():
     """Test live MQTTAdapter connecting to TCP broker, subscribing with wildcards, and publishing."""
-    broker = MockLoopbackBroker()
+    broker = LoopbackMQTTBroker()
     port = await broker.start()
 
     client = MQTTAdapter(broker_host="127.0.0.1", broker_port=port, keep_alive=10)
@@ -441,7 +441,7 @@ async def test_live_mqtt_loopback_pubsub_and_wildcards():
 @pytest.mark.asyncio
 async def test_live_mqtt_qos1_qos2_delivery_acknowledgment():
     """Test QoS 1 and QoS 2 delivery acknowledgment handshake over live loopback TCP."""
-    broker = MockLoopbackBroker()
+    broker = LoopbackMQTTBroker()
     port = await broker.start()
 
     client = MQTTAdapter(broker_host="127.0.0.1", broker_port=port)
@@ -464,7 +464,7 @@ async def test_live_mqtt_qos1_qos2_delivery_acknowledgment():
 @pytest.mark.asyncio
 async def test_live_mqtt_client_execute_adapter_interface():
     """Test standard DeviceAdapter execute() interface on MQTTAdapter."""
-    broker = MockLoopbackBroker()
+    broker = LoopbackMQTTBroker()
     port = await broker.start()
 
     client = MQTTAdapter(broker_host="127.0.0.1", broker_port=port)
@@ -490,7 +490,7 @@ async def test_live_mqtt_client_execute_adapter_interface():
 @pytest.mark.asyncio
 async def test_live_mqtt_auto_reconnect():
     """Test MQTTAdapter automatic reconnection watchdog when broker connection breaks and restarts."""
-    broker = MockLoopbackBroker()
+    broker = LoopbackMQTTBroker()
     port = await broker.start()
 
     client = MQTTAdapter(

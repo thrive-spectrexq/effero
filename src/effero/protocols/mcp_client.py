@@ -10,6 +10,8 @@ import os
 from collections.abc import Callable
 from typing import Any
 
+import httpx
+
 from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ class MCPClient:
         env: dict[str, str] | None = None,
         url: str | None = None,
         default_safety_class: SafetyClass | str = SafetyClass.ACT_WITH_APPROVAL,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self.name = name
         self.command = command
@@ -42,6 +45,7 @@ class MCPClient:
             self.default_safety_class = default_safety_class
 
         self._process: asyncio.subprocess.Process | None = None
+        self._http_client: httpx.AsyncClient | None = http_client
         self._request_id = 0
         self._pending_requests: dict[int, asyncio.Future[dict[str, Any]]] = {}
         self._reader_task: asyncio.Task[None] | None = None
@@ -84,8 +88,23 @@ class MCPClient:
             await self._send_notification("notifications/initialized", {})
 
         elif self.url:
-            # Placeholder for HTTP/SSE endpoint connection
+            if self._http_client is None:
+                self._http_client = httpx.AsyncClient(timeout=30.0)
             self._connected = True
+
+            # Send initialize handshake over HTTP
+            init_resp = await self._send_request(
+                "initialize",
+                {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "effero-client", "version": "0.1.5"},
+                },
+            )
+            logger.debug(f"MCP HTTP server '{self.name}' initialized: {init_resp}")
+
+            # Send initialized notification
+            await self._send_notification("notifications/initialized", {})
             logger.info(f"Connected to external MCP endpoint '{self.name}' at {self.url}")
         else:
             raise ValueError(f"MCPClient '{self.name}' requires either 'command' or 'url'")
@@ -108,6 +127,13 @@ class MCPClient:
         params = {"name": name, "arguments": arguments or {}}
         response = await self._send_request("tools/call", params)
         content = response.get("content", [])
+        if response.get("isError"):
+            err_msg = ""
+            if isinstance(content, list) and content and isinstance(content[0], dict):
+                err_msg = content[0].get("text", "")
+            else:
+                err_msg = str(content)
+            raise RuntimeError(f"MCP tool '{name}' error: {err_msg}")
         if isinstance(content, list) and len(content) == 1 and isinstance(content[0], dict):
             if content[0].get("type") == "text":
                 return content[0].get("text", "")
@@ -138,16 +164,29 @@ class MCPClient:
 
             tool_callable = _make_tool_func(raw_name)
 
-            # Build dummy inspect signature from inputSchema
+            # Build genuine inspect signature from inputSchema
             properties = tool.get("inputSchema", {}).get("properties", {})
-            params = [
-                inspect.Parameter(
-                    name=p_name,
-                    kind=inspect.Parameter.KEYWORD_ONLY,
-                    annotation=Any,
+            required_props = set(tool.get("inputSchema", {}).get("required", []))
+            type_mapping: dict[str, type] = {
+                "string": str,
+                "integer": int,
+                "number": float,
+                "boolean": bool,
+                "object": dict,
+                "array": list,
+            }
+            params = []
+            for p_name, p_info in properties.items():
+                p_type = type_mapping.get(p_info.get("type", ""), Any) if isinstance(p_info, dict) else Any
+                p_default = inspect.Parameter.empty if p_name in required_props else None
+                params.append(
+                    inspect.Parameter(
+                        name=p_name,
+                        kind=inspect.Parameter.KEYWORD_ONLY,
+                        annotation=p_type,
+                        default=p_default,
+                    )
                 )
-                for p_name in properties
-            ]
             sig = inspect.Signature(parameters=params)
 
             spec = SkillSpec(
@@ -177,6 +216,29 @@ class MCPClient:
             "params": params,
         }
 
+        # HTTP / SSE transport branch
+        if self.url:
+            if not self._http_client:
+                raise ConnectionError(f"MCP HTTP client '{self.name}' not connected. Call connect() first.")
+            resp = await self._http_client.post(
+                self.url,
+                json=req,
+                headers={"Content-Type": "application/json"},
+            )
+            try:
+                data = resp.json()
+            except Exception:
+                resp.raise_for_status()
+                raise
+            if isinstance(data, dict) and "error" in data:
+                err = data["error"]
+                err_code = err.get("code") if isinstance(err, dict) else -32000
+                err_msg = err.get("message") if isinstance(err, dict) else str(err)
+                raise RuntimeError(f"MCP error {err_code}: {err_msg}")
+            resp.raise_for_status()
+            return data.get("result", {})
+
+        # Subprocess stdio transport branch
         loop = asyncio.get_running_loop()
         future: asyncio.Future[dict[str, Any]] = loop.create_future()
         self._pending_requests[req_id] = future
@@ -186,7 +248,7 @@ class MCPClient:
             self._process.stdin.write(line)
             await self._process.stdin.drain()
         else:
-            raise ConnectionError(f"MCP server '{self.name}' stdio stream not available")
+            raise ConnectionError(f"MCP server '{self.name}' transport stream not available")
 
         # Wait for response with timeout
         try:
@@ -202,6 +264,19 @@ class MCPClient:
             "method": method,
             "params": params,
         }
+
+        if self.url:
+            if self._http_client:
+                try:
+                    await self._http_client.post(
+                        self.url,
+                        json=notif,
+                        headers={"Content-Type": "application/json"},
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send MCP notification to '{self.name}': {e}")
+            return
+
         if self._process and self._process.stdin:
             line = (json.dumps(notif) + "\n").encode("utf-8")
             self._process.stdin.write(line)
@@ -225,17 +300,22 @@ class MCPClient:
                     if not future.done():
                         if "error" in data:
                             err = data["error"]
-                            future.set_exception(RuntimeError(f"MCP error {err.get('code')}: {err.get('message')}"))
+                            err_code = err.get("code") if isinstance(err, dict) else -32000
+                            err_msg = err.get("message") if isinstance(err, dict) else str(err)
+                            future.set_exception(RuntimeError(f"MCP error {err_code}: {err_msg}"))
                         else:
                             future.set_result(data.get("result", {}))
             except Exception as e:
                 logger.debug(f"Error parsing MCP response line: {e}")
 
     async def close(self) -> None:
-        """Shutdown client and terminate process."""
+        """Shutdown client and terminate process / HTTP session."""
         self._connected = False
         if self._reader_task:
             self._reader_task.cancel()
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
         if self._process:
             if self._process.stdin:
                 try:

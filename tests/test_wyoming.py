@@ -4,12 +4,26 @@ from __future__ import annotations
 
 import pytest
 
+from effero.core.event_bus import EventBus
+from effero.perception.audio.asr import ASRBackend, TranscriptionResult
+from effero.perception.audio.pipeline import AudioPipeline
 from effero.protocols.wyoming import (
     WyomingClient,
     WyomingEvent,
     WyomingServer,
     pcm_to_wav,
 )
+
+
+class ScriptedASR(ASRBackend):
+    """Deterministic ASR backend returning scripted transcription."""
+
+    def __init__(self, text: str = "turn on the kitchen light") -> None:
+        self.text = text
+
+    async def transcribe(self, audio_data: bytes) -> TranscriptionResult:
+        assert len(audio_data) > 0
+        return TranscriptionResult(text=self.text, confidence=0.99)
 
 
 def test_wyoming_event_serialization() -> None:
@@ -51,12 +65,8 @@ async def test_wyoming_server_describe() -> None:
 async def test_wyoming_audio_exchange() -> None:
     port = 19501
 
-    class MockAudioPipe:
-        async def process_audio(self, audio_data: bytes) -> str:
-            assert len(audio_data) > 0
-            return "turn on the kitchen light"
-
-    server = WyomingServer(host="127.0.0.1", port=port, audio_pipeline=MockAudioPipe())
+    pipeline = AudioPipeline(event_bus=EventBus(), asr_backend=ScriptedASR("turn on the kitchen light"))
+    server = WyomingServer(host="127.0.0.1", port=port, audio_pipeline=pipeline)
     await server.start()
 
     try:

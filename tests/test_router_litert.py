@@ -1,9 +1,11 @@
-"""Tests for LiteRT-LM backend and router integration."""
+"""Tests for LiteRT-LM backend and router integration using concrete contract test doubles."""
 
 from __future__ import annotations
 
 import sys
-from unittest.mock import MagicMock
+import types
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
 
@@ -11,6 +13,73 @@ from effero.config import ModelConfig
 from effero.core.router.base import LLMRequest
 from effero.core.router.litert_backend import LiteRTLMBackend
 from effero.core.router.router import ModelRouter
+
+
+class FakeConversation:
+    """Explicit test double for LiteRT-LM conversation session."""
+
+    def __init__(self, response_chunks: list[dict[str, list[dict[str, str]]]]) -> None:
+        self.response_chunks = response_chunks
+        self.system_instruction: str | None = None
+        self.received_prompts: list[str] = []
+
+    def __enter__(self) -> FakeConversation:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
+
+    def set_system_instruction(self, instruction: str) -> None:
+        self.system_instruction = instruction
+
+    def send_message_async(self, prompt: str) -> Iterator[dict[str, list[dict[str, str]]]]:
+        self.received_prompts.append(prompt)
+        yield from self.response_chunks
+
+
+class FakeBackendEnum:
+    """Backend hardware acceleration targets."""
+
+    @staticmethod
+    def GPU() -> str:
+        return "GPU_BACKEND"
+
+    @staticmethod
+    def NPU() -> str:
+        return "NPU_BACKEND"
+
+    @staticmethod
+    def CPU() -> str:
+        return "CPU_BACKEND"
+
+
+class FakeLiteRTEngine:
+    """Explicit structural test double for litert_lm.Engine."""
+
+    def __init__(self, model: str, **kwargs: Any) -> None:
+        self.model = model
+        self.kwargs = kwargs
+        self.closed = False
+        self.last_confidence = 0.92
+        self.active_conversation: FakeConversation | None = None
+
+    def create_conversation(self) -> FakeConversation:
+        if self.active_conversation is not None:
+            return self.active_conversation
+        return FakeConversation([])
+
+    def get_last_confidence(self) -> float:
+        return self.last_confidence
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FakeLiteRTModule:
+    """Emulates litert_lm module surface."""
+
+    Backend = FakeBackendEnum
+    Engine = FakeLiteRTEngine
 
 
 def test_litert_router_factory() -> None:
@@ -35,51 +104,48 @@ async def test_litert_is_available_without_dependency(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.asyncio
-async def test_litert_is_available_with_mock_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_litert_is_available_with_engine(monkeypatch: pytest.MonkeyPatch) -> None:
     """is_available() should return True when litert_lm is importable and model is set."""
     backend = LiteRTLMBackend(model="gemma-3-1b")
-    mock_module = MagicMock()
-    monkeypatch.setitem(sys.modules, "litert_lm", mock_module)
+    fake_mod = types.ModuleType("litert_lm")
+    monkeypatch.setitem(sys.modules, "litert_lm", fake_mod)
     assert await backend.is_available() is True
 
 
 def test_device_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify device string resolves to corresponding litert_lm.Backend target."""
-    mock_litert = MagicMock()
-    mock_litert.Backend.GPU.return_value = "GPU_BACKEND"
-    mock_litert.Backend.NPU.return_value = "NPU_BACKEND"
-    mock_litert.Backend.CPU.return_value = "CPU_BACKEND"
+    fake_litert = FakeLiteRTModule
 
     gpu_backend = LiteRTLMBackend(model="model.litertlm", device="gpu")
-    assert gpu_backend._resolve_backend_type(mock_litert) == "GPU_BACKEND"
+    assert gpu_backend._resolve_backend_type(fake_litert) == "GPU_BACKEND"
 
     npu_backend = LiteRTLMBackend(model="model.litertlm", device="npu")
-    assert npu_backend._resolve_backend_type(mock_litert) == "NPU_BACKEND"
+    assert npu_backend._resolve_backend_type(fake_litert) == "NPU_BACKEND"
 
     cpu_backend = LiteRTLMBackend(model="model.litertlm", device="cpu")
-    assert cpu_backend._resolve_backend_type(mock_litert) == "CPU_BACKEND"
+    assert cpu_backend._resolve_backend_type(fake_litert) == "CPU_BACKEND"
 
 
 @pytest.mark.asyncio
 async def test_litert_complete_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify complete() runs conversation on mocked LiteRT-LM engine and formats response."""
-    mock_litert = MagicMock()
-    mock_conversation = MagicMock()
-    # Mock send_message_async returning streaming content chunks
-    mock_conversation.send_message_async.return_value = [
-        {"content": [{"text": "Navigation "}]},
-        {"content": [{"text": "trajectory planned."}]},
-    ]
-    # Context manager protocol for conversation
-    mock_conversation.__enter__.return_value = mock_conversation
-    mock_conversation.__exit__.return_value = None
+    """Verify complete() runs conversation on LiteRT-LM engine and formats response."""
+    fake_mod = types.ModuleType("litert_lm")
+    fake_mod.Backend = FakeBackendEnum  # type: ignore[attr-defined]
 
-    mock_engine = MagicMock()
-    mock_engine.create_conversation.return_value = mock_conversation
-    mock_engine.get_last_confidence.return_value = 0.92
-    mock_litert.Engine.return_value = mock_engine
+    conv = FakeConversation(
+        [
+            {"content": [{"text": "Navigation "}]},
+            {"content": [{"text": "trajectory planned."}]},
+        ]
+    )
+    engine = FakeLiteRTEngine(model="gemma-3-1b.litertlm")
+    engine.active_conversation = conv
 
-    monkeypatch.setitem(sys.modules, "litert_lm", mock_litert)
+    def engine_factory(model: str, **kwargs: Any) -> FakeLiteRTEngine:
+        return engine
+
+    fake_mod.Engine = engine_factory  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "litert_lm", fake_mod)
 
     backend = LiteRTLMBackend(model="gemma-3-1b.litertlm", device="npu")
     request = LLMRequest(
@@ -99,22 +165,21 @@ async def test_litert_complete_success(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_litert_tool_calling_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify tool call in json code fence is correctly extracted from model output."""
-    mock_litert = MagicMock()
-    mock_conversation = MagicMock()
+    fake_mod = types.ModuleType("litert_lm")
+    fake_mod.Backend = FakeBackendEnum  # type: ignore[attr-defined]
+
     tool_json_text = (
         "I will set the lights now.\n"
         "```json\n"
         '{"tool_call": {"name": "iot.lights.turn_on", "arguments": {"room": "kitchen"}}}\n'
         "```"
     )
-    mock_conversation.send_message_async.return_value = [{"content": [{"text": tool_json_text}]}]
-    mock_conversation.__enter__.return_value = mock_conversation
-    mock_conversation.__exit__.return_value = None
+    conv = FakeConversation([{"content": [{"text": tool_json_text}]}])
+    engine = FakeLiteRTEngine(model="gemma-3-1b.litertlm")
+    engine.active_conversation = conv
 
-    mock_engine = MagicMock()
-    mock_engine.create_conversation.return_value = mock_conversation
-    mock_litert.Engine.return_value = mock_engine
-    monkeypatch.setitem(sys.modules, "litert_lm", mock_litert)
+    fake_mod.Engine = lambda model, **kwargs: engine  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "litert_lm", fake_mod)
 
     backend = LiteRTLMBackend(model="gemma-3-1b.litertlm")
     request = LLMRequest(
@@ -133,9 +198,9 @@ async def test_litert_tool_calling_extraction(monkeypatch: pytest.MonkeyPatch) -
 def test_litert_close() -> None:
     """Verify close() releases the engine."""
     backend = LiteRTLMBackend(model="test.litertlm")
-    mock_engine = MagicMock()
-    backend._engine = mock_engine
+    fake_engine = FakeLiteRTEngine("test.litertlm")
+    backend._engine = fake_engine
 
     backend.close()
-    mock_engine.close.assert_called_once()
+    assert fake_engine.closed is True
     assert backend._engine is None

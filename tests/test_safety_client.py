@@ -10,8 +10,8 @@ import pytest
 from effero.safety.client import SafetyClient
 
 
-async def _start_mock_safety_server(host: str, port: int, decisions: dict) -> asyncio.AbstractServer:
-    """Start a mock safety kernel TCP server."""
+async def _start_safety_kernel_server(host: str, port: int, decisions: dict) -> asyncio.AbstractServer:
+    """Start an in-process safety kernel TCP server."""
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         while True:
@@ -33,7 +33,7 @@ async def _start_mock_safety_server(host: str, port: int, decisions: dict) -> as
 async def test_connect_and_check_allow() -> None:
     port = 19401
     decisions = {"test.skill": {"decision": "allow"}}
-    server = await _start_mock_safety_server("127.0.0.1", port, decisions)
+    server = await _start_safety_kernel_server("127.0.0.1", port, decisions)
 
     async with server:
         client = SafetyClient(port=port)
@@ -47,7 +47,7 @@ async def test_connect_and_check_allow() -> None:
 async def test_check_deny() -> None:
     port = 19402
     decisions = {"dangerous.skill": {"decision": "deny", "reason": "Too risky"}}
-    server = await _start_mock_safety_server("127.0.0.1", port, decisions)
+    server = await _start_safety_kernel_server("127.0.0.1", port, decisions)
 
     async with server:
         client = SafetyClient(port=port)

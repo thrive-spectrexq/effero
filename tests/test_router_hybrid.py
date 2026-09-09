@@ -5,39 +5,10 @@ from __future__ import annotations
 import pytest
 
 from effero.config import ModelConfig
-from effero.core.router.base import LLMBackend, LLMRequest, LLMResponse
+from effero.core.router import ScriptedBackend
+from effero.core.router.base import LLMRequest
 from effero.core.router.openai_backend import OpenAIBackend
 from effero.core.router.router import ModelRouter
-
-
-class MockConfidenceBackend(LLMBackend):
-    """Mock backend that returns a configurable confidence score."""
-
-    def __init__(
-        self,
-        name: str = "mock",
-        content: str = "ok",
-        confidence: float | None = None,
-        should_fail: bool = False,
-    ) -> None:
-        self.name = name
-        self.content = content
-        self.confidence = confidence
-        self.should_fail = should_fail
-        self.call_count = 0
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        self.call_count += 1
-        if self.should_fail:
-            raise RuntimeError(f"{self.name} failed")
-        return LLMResponse(
-            content=self.content,
-            backend=self.name,
-            confidence=self.confidence,
-        )
-
-    async def is_available(self) -> bool:
-        return True
 
 
 def test_cactus_backend_factory() -> None:
@@ -80,8 +51,8 @@ async def test_hybrid_fallback_on_low_confidence() -> None:
     router = ModelRouter(config)
 
     # Replace backends with mocks
-    primary = MockConfidenceBackend(name="cactus_local", content="unsure local", confidence=0.45)
-    fallback = MockConfidenceBackend(name="cloud_gpt4o", content="confident cloud", confidence=0.95)
+    primary = ScriptedBackend(name="cactus_local", content="unsure local", confidence=0.45)
+    fallback = ScriptedBackend(name="cloud_gpt4o", content="confident cloud", confidence=0.95)
     router.backends = [primary, fallback]
 
     request = LLMRequest(messages=[{"role": "user", "content": "solve complex spatial problem"}])
@@ -106,8 +77,8 @@ async def test_hybrid_no_fallback_on_high_confidence() -> None:
     )
     router = ModelRouter(config)
 
-    primary = MockConfidenceBackend(name="cactus_local", content="fast local answer", confidence=0.88)
-    fallback = MockConfidenceBackend(name="cloud_gpt4o", content="cloud answer", confidence=0.99)
+    primary = ScriptedBackend(name="cactus_local", content="fast local answer", confidence=0.88)
+    fallback = ScriptedBackend(name="cloud_gpt4o", content="cloud answer", confidence=0.99)
     router.backends = [primary, fallback]
 
     request = LLMRequest(messages=[{"role": "user", "content": "turn on lights"}])
@@ -132,8 +103,8 @@ async def test_hybrid_disabled_returns_low_confidence() -> None:
     )
     router = ModelRouter(config)
 
-    primary = MockConfidenceBackend(name="cactus_local", content="local low conf", confidence=0.30)
-    fallback = MockConfidenceBackend(name="cloud_gpt4o", content="cloud answer", confidence=0.95)
+    primary = ScriptedBackend(name="cactus_local", content="local low conf", confidence=0.30)
+    fallback = ScriptedBackend(name="cloud_gpt4o", content="cloud answer", confidence=0.95)
     router.backends = [primary, fallback]
 
     request = LLMRequest(messages=[{"role": "user", "content": "test"}])
@@ -157,8 +128,8 @@ async def test_hybrid_last_backend_low_confidence_returned() -> None:
     )
     router = ModelRouter(config)
 
-    primary = MockConfidenceBackend(name="cactus_local", content="local low conf", confidence=0.30)
-    fallback = MockConfidenceBackend(name="cloud_gpt4o", content="cloud low conf", confidence=0.50)
+    primary = ScriptedBackend(name="cactus_local", content="local low conf", confidence=0.30)
+    fallback = ScriptedBackend(name="cloud_gpt4o", content="cloud low conf", confidence=0.50)
     router.backends = [primary, fallback]
 
     request = LLMRequest(messages=[{"role": "user", "content": "hard problem"}])

@@ -11,6 +11,7 @@ from effero.core.callbacks.base import CallbackList
 
 if TYPE_CHECKING:
     from effero.core.memory.working import WorkingMemory
+    from effero.core.router.base import LLMBackend
     from effero.core.router.router import ModelRouter
     from effero.safety.approval import ApprovalHandler
     from effero.safety.client import SafetyClient
@@ -36,7 +37,7 @@ class Planner:
 
     def __init__(
         self,
-        router: ModelRouter | Any,
+        router: ModelRouter | LLMBackend,
         memory: WorkingMemory,
         skills: SkillRegistry,
         safety_client: SafetyClient | None = None,

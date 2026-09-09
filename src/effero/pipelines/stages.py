@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from effero.pipelines.base import PipelineStage
 
@@ -29,8 +29,8 @@ class FunctionStage(PipelineStage[InputT, OutputT]):
     async def process(self, input_data: InputT) -> OutputT:
         res = self.func(input_data)
         if inspect.isawaitable(res):
-            return await res  # type: ignore[no-any-return]
-        return res  # type: ignore[no-any-return]
+            return cast(OutputT, await res)
+        return cast(OutputT, res)
 
 
 class FilterStage(PipelineStage[list[ItemT], list[ItemT]], Generic[ItemT]):

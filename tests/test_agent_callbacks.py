@@ -13,21 +13,9 @@ from effero.core.callbacks.base import AgentCallback, CallbackList
 from effero.core.callbacks.telemetry import AuditLogCallback, TelemetryCallback
 from effero.core.memory.working import WorkingMemory
 from effero.core.planner.planner import Planner
-from effero.core.router.base import LLMRequest, LLMResponse, ToolCall
+from effero.core.router import ScriptedBackend
+from effero.core.router.base import LLMResponse, ToolCall
 from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec
-
-
-class MockRouter:
-    def __init__(self, responses: list[LLMResponse]) -> None:
-        self.responses = list(responses)
-        self._call_idx = 0
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        if self._call_idx < len(self.responses):
-            resp = self.responses[self._call_idx]
-            self._call_idx += 1
-            return resp
-        return LLMResponse(content="(done)")
 
 
 class TrackingCallback(AgentCallback):
@@ -91,7 +79,7 @@ async def test_planner_callback_lifecycle():
     skills = _build_test_registry()
     memory = WorkingMemory()
 
-    router = MockRouter(
+    router = ScriptedBackend(
         [
             LLMResponse(
                 content="Multiplying",
@@ -140,7 +128,7 @@ async def test_telemetry_and_audit_callbacks():
     callbacks = CallbackList([telemetry, audit])
 
     skills = _build_test_registry()
-    router = MockRouter(
+    router = ScriptedBackend(
         [
             LLMResponse(
                 content="Calling multiply",

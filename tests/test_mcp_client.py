@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from effero.protocols.mcp_client import MCPClient
-from effero.sdk.skill import SafetyClass, SkillRegistry
+from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec
 
 
 @pytest.mark.asyncio
@@ -93,3 +93,100 @@ for line in sys.stdin:
 
     finally:
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_mcp_client_http_jsonrpc_handshake_and_call():
+    """Test connecting to an external MCP server via real HTTP JSON-RPC endpoint."""
+    import httpx
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    from effero.protocols.mcp_server import MCPServer
+
+    reg = SkillRegistry()
+
+    def multiply(x: float, y: float) -> dict:
+        return {"result": x * y}
+
+    import inspect
+
+    spec = SkillSpec(
+        name="math_multiply",
+        description="Multiply two numbers",
+        safety_class=SafetyClass.READ_ONLY,
+        func=multiply,
+        signature=inspect.signature(multiply),
+    )
+    reg.register(spec)
+    server = MCPServer(reg)
+
+    async def mcp_endpoint(request: Request) -> JSONResponse:
+        data = await request.json()
+        resp = await server.handle_request(data)
+        return JSONResponse(resp)
+
+    app = Starlette(routes=[Route("/mcp", mcp_endpoint, methods=["POST"])])
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http_client:
+        client = MCPClient(
+            name="test_remote_http",
+            url="http://test/mcp",
+            default_safety_class=SafetyClass.READ_ONLY,
+            http_client=http_client,
+        )
+        try:
+            await client.connect()
+            tools = await client.list_tools()
+            assert len(tools) == 1
+            assert tools[0]["name"] == "math_multiply"
+
+            fresh_registry = SkillRegistry()
+            mounted = client.mount_tools(fresh_registry, prefix="remote")
+            assert mounted == ["remote.math_multiply"]
+
+            tool_spec = fresh_registry.get("remote.math_multiply")
+            res = await tool_spec(x=6.0, y=7.0)
+            assert "42" in res
+
+            # Tool failure propagation when isError is True
+            with pytest.raises(RuntimeError, match="MCP tool 'math_multiply' error"):
+                await client.call_tool("math_multiply", {"x": "invalid_number", "y": 7.0})
+
+            # Unknown tool failure
+            with pytest.raises(RuntimeError, match="Unknown tool"):
+                await client.call_tool("nonexistent_tool", {})
+        finally:
+            await client.close()
+
+
+@pytest.mark.asyncio
+async def test_mcp_client_http_server_error_and_unconnected():
+    """Test HTTP 500 JSON-RPC error extraction and unconnected state exception."""
+    import httpx
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    async def failing_endpoint(request: Request) -> JSONResponse:
+        return JSONResponse(
+            {"jsonrpc": "2.0", "id": 1, "error": {"code": -32000, "message": "Internal gateway failure"}},
+            status_code=500,
+        )
+
+    app = Starlette(routes=[Route("/mcp", failing_endpoint, methods=["POST"])])
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http_client:
+        client = MCPClient(name="test_err", url="http://test/mcp", http_client=http_client)
+
+        # Calling send_request before connect should raise ConnectionError if http_client is None
+        unconnected_client = MCPClient(name="unconnected", url="http://test/mcp")
+        with pytest.raises(ConnectionError, match="Call connect\\(\\) first"):
+            await unconnected_client._send_request("test", {})
+
+        # Connecting to failing endpoint extracts JSON-RPC error even with HTTP 500
+        with pytest.raises(RuntimeError, match="MCP error -32000: Internal gateway failure"):
+            await client.connect()

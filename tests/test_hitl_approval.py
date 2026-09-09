@@ -9,26 +9,14 @@ import pytest
 
 from effero.core.memory.working import WorkingMemory
 from effero.core.planner.planner import Planner
-from effero.core.router.base import LLMRequest, LLMResponse, ToolCall
+from effero.core.router import ScriptedBackend
+from effero.core.router.base import LLMResponse, ToolCall
 from effero.safety.approval import (
     ApprovalRequest,
     AutoApprovalHandler,
     CallbackApprovalHandler,
 )
 from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec
-
-
-class MockRouter:
-    def __init__(self, responses: list[LLMResponse]):
-        self.responses = list(responses)
-        self.idx = 0
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        if self.idx < len(self.responses):
-            resp = self.responses[self.idx]
-            self.idx += 1
-            return resp
-        return LLMResponse(content="Done")
 
 
 @pytest.fixture
@@ -52,7 +40,7 @@ def approval_skill_registry():
 @pytest.mark.asyncio
 async def test_auto_approval_accepts(approval_skill_registry) -> None:
     handler = AutoApprovalHandler(approve_all=True)
-    router = MockRouter(
+    router = ScriptedBackend(
         [
             LLMResponse(
                 content=None,
@@ -79,7 +67,7 @@ async def test_auto_approval_accepts(approval_skill_registry) -> None:
 @pytest.mark.asyncio
 async def test_auto_approval_rejects_and_prevents_execution(approval_skill_registry) -> None:
     handler = AutoApprovalHandler(approve_all=False)
-    router = MockRouter(
+    router = ScriptedBackend(
         [
             LLMResponse(
                 content=None,

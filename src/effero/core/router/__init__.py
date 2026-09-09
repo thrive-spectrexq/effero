@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from effero.core.router.base import LLMBackend, LLMRequest, LLMResponse, ToolCall
     from effero.core.router.router import ModelRouter
+    from effero.core.router.scripted_backend import ScriptedBackend
 
 __all__ = [
     "LLMBackend",
     "LLMRequest",
     "LLMResponse",
     "ModelRouter",
+    "ScriptedBackend",
     "ToolCall",
 ]
 
@@ -26,4 +28,8 @@ def __getattr__(name: str) -> Any:
         import effero.core.router.router as router_mod
 
         return getattr(router_mod, name)
+    elif name == "ScriptedBackend":
+        import effero.core.router.scripted_backend as scripted_mod
+
+        return getattr(scripted_mod, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

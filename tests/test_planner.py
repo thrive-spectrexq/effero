@@ -9,23 +9,9 @@ import pytest
 
 from effero.core.memory.working import WorkingMemory
 from effero.core.planner.planner import Planner
-from effero.core.router.base import LLMRequest, LLMResponse, ToolCall
+from effero.core.router import ScriptedBackend
+from effero.core.router.base import LLMResponse, ToolCall
 from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec
-
-
-class MockRouter:
-    """Mock model router that returns controlled responses."""
-
-    def __init__(self, responses: list[LLMResponse]):
-        self.responses = list(responses)
-        self._call_idx = 0
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        if self._call_idx < len(self.responses):
-            resp = self.responses[self._call_idx]
-            self._call_idx += 1
-            return resp
-        return LLMResponse(content="(exhausted)")
 
 
 def _make_registry_with_skill() -> SkillRegistry:
@@ -50,7 +36,7 @@ def _make_registry_with_skill() -> SkillRegistry:
 @pytest.mark.asyncio
 async def test_simple_text_response() -> None:
     """LLM responds with text, no tool calls — planner returns it."""
-    router = MockRouter([LLMResponse(content="Hello! How can I help?")])
+    router = ScriptedBackend([LLMResponse(content="Hello! How can I help?")])
     memory = WorkingMemory()
     skills = SkillRegistry()
 
@@ -62,7 +48,7 @@ async def test_simple_text_response() -> None:
 @pytest.mark.asyncio
 async def test_tool_call_and_result() -> None:
     """LLM calls a tool, planner executes it, then LLM gives final answer."""
-    router = MockRouter(
+    router = ScriptedBackend(
         [
             # First response: call the test.add tool
             LLMResponse(
@@ -84,7 +70,7 @@ async def test_tool_call_and_result() -> None:
 @pytest.mark.asyncio
 async def test_unknown_skill() -> None:
     """LLM calls a skill that doesn't exist — planner returns error."""
-    router = MockRouter(
+    router = ScriptedBackend(
         [
             LLMResponse(
                 content=None,
@@ -113,7 +99,7 @@ async def test_max_iterations() -> None:
         )
         for i in range(20)
     ]
-    router = MockRouter(responses)
+    router = ScriptedBackend(responses)
     memory = WorkingMemory()
     skills = _make_registry_with_skill()
 

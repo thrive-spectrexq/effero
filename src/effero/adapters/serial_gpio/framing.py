@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum
 
 
@@ -274,11 +274,7 @@ class ModbusResponse:
     is_exception: bool
     exception_code: int | None = None
     data: bytes = b""
-    registers: list[int] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.registers is None:
-            self.registers = []
+    registers: list[int] = field(default_factory=list)
 
 
 class ModbusPacket:
