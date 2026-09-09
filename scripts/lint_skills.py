@@ -13,10 +13,13 @@ Checks:
 Exit code 0 if all skills pass, 1 if any fail.
 """
 
+import fnmatch
 import importlib
 import re
 import sys
 from pathlib import Path
+
+import yaml
 
 # Ensure the src directory is importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -60,12 +63,10 @@ for name in registry.list():
             warnings.append(f"  {spec.name}: parameter '{param_name}' has no type annotation")
 
 # Check 4: Validate example effero.yaml configs against registered skills
-import fnmatch
-import yaml
-
 registered_names = set(registry.list())
 repo_root = Path(__file__).resolve().parents[1]
 for example_yaml in repo_root.glob("examples/**/effero.yaml"):
+    rel_path = example_yaml.relative_to(repo_root)
     try:
         data = yaml.safe_load(example_yaml.read_text(encoding="utf-8")) or {}
         # Check declared skills
@@ -75,7 +76,7 @@ for example_yaml in repo_root.glob("examples/**/effero.yaml"):
                 n for n in registered_names if fnmatch.fnmatch(n, clean_pat) or n.startswith(clean_pat.rstrip("*"))
             ]
             if not matches:
-                errors.append(f"  {example_yaml.relative_to(repo_root)}: skill '{pattern}' matches 0 registered skills")
+                errors.append(f"  {rel_path}: skill '{pattern}' matches 0 registered skills")
 
         # Check require_approval_for
         safety_sec = data.get("safety", {})
@@ -85,11 +86,9 @@ for example_yaml in repo_root.glob("examples/**/effero.yaml"):
                 n for n in registered_names if fnmatch.fnmatch(n, clean_pat) or n.startswith(clean_pat.rstrip("*"))
             ]
             if not matches:
-                errors.append(
-                    f"  {example_yaml.relative_to(repo_root)}: require_approval_for '{pattern}' matches 0 registered skills"
-                )
+                errors.append(f"  {rel_path}: require_approval_for '{pattern}' matches 0 registered skills")
     except Exception as e:
-        warnings.append(f"  {example_yaml.relative_to(repo_root)}: could not parse YAML: {e}")
+        warnings.append(f"  {rel_path}: could not parse YAML: {e}")
 
 print(f"\nSkill registry lint: checked {skill_count} skills")
 

@@ -54,16 +54,17 @@ async def test_require_approval_for_wildcard_matching() -> None:
     await agent.start()
 
     # Script the router to request robotics.arm.home
-    agent.router = ScriptedBackend(
-        [
-            LLMResponse(
-                content=None,
-                tool_calls=[ToolCall(id="c1", name="robotics.arm.home", arguments={})],
-            ),
-            LLMResponse(content="Action completed or handled."),
-        ]
-    )
-    agent.planner.router = agent.router
+    agent.router.backends = [
+        ScriptedBackend(
+            [
+                LLMResponse(
+                    content=None,
+                    tool_calls=[ToolCall(id="c1", name="robotics.arm.home", arguments={})],
+                ),
+                LLMResponse(content="Action completed or handled."),
+            ]
+        )
+    ]
 
     await agent.run("Home the robot arm")
 
