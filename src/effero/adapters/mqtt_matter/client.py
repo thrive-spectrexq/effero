@@ -166,6 +166,20 @@ class MQTTAdapter(DeviceAdapter):
         self._manual_disconnect = False
         await self._establish_connection()
 
+    def _build_ssl_context(self) -> ssl.SSLContext | None:
+        """Build or return configured SSLContext for TLS broker connections."""
+        if self.ssl_context is not None:
+            return self.ssl_context
+        if not self.use_tls and self.broker_port != 8883:
+            return None
+        if self.tls_insecure:
+            ctx = ssl._create_unverified_context()
+        else:
+            ctx = ssl.create_default_context(cafile=self.ca_certs)
+        if self.certfile:
+            ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+        return ctx
+
     async def _establish_connection(self) -> None:
         """Perform socket connection and MQTT CONNECT / CONNACK handshake."""
         if self._writer and not self._writer.is_closing():
@@ -177,15 +191,7 @@ class MQTTAdapter(DeviceAdapter):
         self._reader = None
         self._writer = None
 
-        ssl_ctx = self.ssl_context
-        if (self.use_tls or self.broker_port == 8883) and ssl_ctx is None:
-            if self.tls_insecure:
-                ssl_ctx = ssl._create_unverified_context()
-            else:
-                ssl_ctx = ssl.create_default_context(cafile=self.ca_certs)
-            if self.certfile:
-                ssl_ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
-
+        ssl_ctx = self._build_ssl_context()
         tls_note = " (TLS enabled)" if ssl_ctx is not None else ""
         logger.info(f"Connecting to MQTT broker at {self.broker_host}:{self.broker_port}{tls_note}...")
         self._reader, self._writer = await asyncio.open_connection(self.broker_host, self.broker_port, ssl=ssl_ctx)

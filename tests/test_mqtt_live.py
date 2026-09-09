@@ -540,47 +540,46 @@ async def test_live_mqtt_auto_reconnect():
 
 @pytest.mark.asyncio
 async def test_mqtt_tls_configuration() -> None:
-    """Verify MQTTAdapter TLS attributes and SSL context negotiation setup."""
+    """Verify MQTTAdapter TLS attributes, SSL context building, and config integration."""
     import ssl
-    from unittest.mock import AsyncMock, MagicMock, patch
 
     from effero.config import IoTConfig
 
-    # 1. Direct MQTTAdapter with use_tls and tls_insecure
-    client = MQTTAdapter(
+    # 1. Non-TLS client returns None
+    client_plain = MQTTAdapter(broker_host="mqtt.local", broker_port=1883)
+    assert client_plain.use_tls is False
+    assert client_plain._build_ssl_context() is None
+
+    # 2. Direct MQTTAdapter with use_tls and tls_insecure
+    client_insecure = MQTTAdapter(
         broker_host="mqtt.example.com",
         broker_port=8883,
         use_tls=True,
         tls_insecure=True,
     )
-    assert client.use_tls is True
-    assert client.tls_insecure is True
+    assert client_insecure.use_tls is True
+    assert client_insecure.tls_insecure is True
+    ctx_insecure = client_insecure._build_ssl_context()
+    assert isinstance(ctx_insecure, ssl.SSLContext)
+    assert ctx_insecure.check_hostname is False
 
-    # Mock open_connection to inspect ssl argument
-    with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
-        mock_reader = AsyncMock()
-        mock_writer = MagicMock()
-        mock_writer.is_closing.return_value = False
-        mock_writer.wait_closed = AsyncMock()
-        mock_open.return_value = (mock_reader, mock_writer)
+    # 3. Direct MQTTAdapter with use_tls and verified certificates
+    client_secure = MQTTAdapter(
+        broker_host="mqtt.example.com",
+        broker_port=8883,
+        use_tls=True,
+        tls_insecure=False,
+    )
+    ctx_secure = client_secure._build_ssl_context()
+    assert isinstance(ctx_secure, ssl.SSLContext)
+    assert ctx_secure.check_hostname is True
 
-        # Patch _send_packet so it immediately triggers CONNACK resolution
-        async def mock_send(pkt):
-            if isinstance(pkt, ConnectPacket) and client._connack_future and not client._connack_future.done():
-                client._connack_future.set_result(ConnackPacket(session_present=False, return_code=0))
+    # 4. Custom SSLContext passed directly
+    custom_ctx = ssl.create_default_context()
+    client_custom = MQTTAdapter(ssl_context=custom_ctx)
+    assert client_custom._build_ssl_context() is custom_ctx
 
-        client._send_packet = mock_send  # type: ignore[assignment]
-
-        await client._establish_connection()
-
-        assert mock_open.called
-        call_kwargs = mock_open.call_args[1]
-        assert "ssl" in call_kwargs
-        assert isinstance(call_kwargs["ssl"], ssl.SSLContext)
-
-        await client.disconnect()
-
-    # 2. IoTConfig forwards TLS parameters
+    # 5. IoTConfig forwards TLS parameters
     cfg = IoTConfig(
         broker_host="secure-broker.io",
         broker_port=8883,
