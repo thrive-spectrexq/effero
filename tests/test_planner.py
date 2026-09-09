@@ -106,3 +106,96 @@ async def test_max_iterations() -> None:
     planner = Planner(router=router, memory=memory, skills=skills, max_iterations=3)
     result = await planner.run("loop forever")
     assert result == "(max planning iterations reached)"
+
+
+class _FakeSafetyClient:
+    def __init__(self, decision: str = "allow", reason: str = ""):
+        self.connected = True
+        self.decision = decision
+        self.reason = reason
+        self.recorded_calls: list[tuple[str, dict]] = []
+
+    async def check_action(self, skill_name: str, facts: dict | None = None) -> dict:
+        self.recorded_calls.append((skill_name, facts or {}))
+        return {"decision": self.decision, "reason": self.reason}
+
+
+@pytest.mark.asyncio
+async def test_safety_kernel_facts_wiring() -> None:
+    """Verify that skill arguments, environment facts, telemetry, and facts_provider are sent to safety client."""
+    fake_safety = _FakeSafetyClient(decision="allow")
+    memory = WorkingMemory()
+    memory.record_metric("nearest_person_distance_m", 0.45)
+    memory.record_metric("battery_pct", 88.0)
+
+    skills = _make_registry_with_skill()
+    router = ScriptedBackend(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="test.add", arguments={"a": 10, "b": 20})],
+            ),
+            LLMResponse(content="Done"),
+        ]
+    )
+
+    def custom_facts(name, args):
+        return {"external_sensor_reading": 12.5, "alarm_active": False}
+
+    planner = Planner(
+        router=router,
+        memory=memory,
+        skills=skills,
+        safety_client=fake_safety,  # type: ignore[arg-type]
+        facts_provider=custom_facts,
+    )
+    result = await planner.run("Add 10 and 20")
+    assert result == "Done"
+
+    assert len(fake_safety.recorded_calls) == 1
+    skill_name, facts = fake_safety.recorded_calls[0]
+    assert skill_name == "test.add"
+
+    # 1. Skill arguments in facts
+    assert facts["a"] == 10.0
+    assert facts["b"] == 20.0
+    assert facts["arg_a"] == 10.0
+
+    # 2. Environment/time facts
+    assert "time_hour" in facts
+    assert "time_minute" in facts
+    assert isinstance(facts["time_hour"], float)
+    assert isinstance(facts["is_night"], bool)
+
+    # 3. WorkingMemory telemetry facts
+    assert facts["nearest_person_distance_m"] == 0.45
+    assert facts["battery_pct"] == 88.0
+
+    # 4. Custom facts provider
+    assert facts["external_sensor_reading"] == 12.5
+    assert facts["alarm_active"] is False
+
+
+@pytest.mark.asyncio
+async def test_safety_kernel_deny_decision() -> None:
+    """Verify safety client deny decision halts execution and returns error."""
+    fake_safety = _FakeSafetyClient(decision="deny", reason="Proximity violation: person within 0.5m")
+    memory = WorkingMemory()
+    skills = _make_registry_with_skill()
+    router = ScriptedBackend(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="test.add", arguments={"a": 1, "b": 2})],
+            ),
+            LLMResponse(content="I could not execute the action."),
+        ]
+    )
+
+    planner = Planner(router=router, memory=memory, skills=skills, safety_client=fake_safety)  # type: ignore[arg-type]
+    result = await planner.run("Execute addition")
+    assert result is not None
+
+    tool_msgs = [m for m in memory.get_context() if m.get("role") == "tool"]
+    assert len(tool_msgs) == 1
+    assert "Safety policy denied: Proximity violation" in str(tool_msgs[0].get("content"))

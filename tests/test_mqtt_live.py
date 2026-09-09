@@ -536,3 +536,62 @@ async def test_live_mqtt_auto_reconnect():
     finally:
         await client.disconnect()
         await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_mqtt_tls_configuration() -> None:
+    """Verify MQTTAdapter TLS attributes and SSL context negotiation setup."""
+    import ssl
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from effero.config import IoTConfig
+
+    # 1. Direct MQTTAdapter with use_tls and tls_insecure
+    client = MQTTAdapter(
+        broker_host="mqtt.example.com",
+        broker_port=8883,
+        use_tls=True,
+        tls_insecure=True,
+    )
+    assert client.use_tls is True
+    assert client.tls_insecure is True
+
+    # Mock open_connection to inspect ssl argument
+    with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+        mock_reader = AsyncMock()
+        mock_writer = MagicMock()
+        mock_writer.is_closing.return_value = False
+        mock_writer.wait_closed = AsyncMock()
+        mock_open.return_value = (mock_reader, mock_writer)
+
+        # Patch _send_packet so it immediately triggers CONNACK resolution
+        async def mock_send(pkt):
+            if isinstance(pkt, ConnectPacket) and client._connack_future and not client._connack_future.done():
+                client._connack_future.set_result(ConnackPacket(session_present=False, return_code=0))
+
+        client._send_packet = mock_send  # type: ignore[assignment]
+
+        await client._establish_connection()
+
+        assert mock_open.called
+        call_kwargs = mock_open.call_args[1]
+        assert "ssl" in call_kwargs
+        assert isinstance(call_kwargs["ssl"], ssl.SSLContext)
+
+        await client.disconnect()
+
+    # 2. IoTConfig forwards TLS parameters
+    cfg = IoTConfig(
+        broker_host="secure-broker.io",
+        broker_port=8883,
+        use_tls=True,
+        tls_insecure=False,
+    )
+    import effero.adapters.mqtt_matter.client as client_mod
+    from effero.adapters.mqtt_matter.client import get_default_client
+
+    client_mod._default_client = None
+
+    default_client = get_default_client(cfg)
+    assert default_client.use_tls is True
+    assert default_client.broker_port == 8883

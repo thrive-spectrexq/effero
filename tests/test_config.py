@@ -79,3 +79,18 @@ safety:
         assert "robotics.*" in config.safety.require_approval_for
     finally:
         Path(f_path).unlink()
+
+
+def test_security_audit_warnings() -> None:
+    config = EfferoConfig()
+    warnings = config.validate_security()
+    assert any("server.api_key is not set" in w for w in warnings)
+
+    # Secure server and TLS enabled
+    config.server.api_key = "secret"
+    config.iot.enabled = True
+    config.iot.use_tls = False
+    warnings = config.validate_security()
+    assert not any("server.api_key is not set" in w for w in warnings)
+    assert any("IoT MQTT is enabled without TLS" in w for w in warnings)
+

@@ -87,6 +87,24 @@ class Agent:
 
             self.approval_handler = ConsoleApprovalHandler()
 
+        def _agent_facts_provider(skill_name: str, args: dict[str, Any]) -> dict[str, Any]:
+            facts: dict[str, Any] = {}
+            if hasattr(self, "working_memory") and self.working_memory.telemetry_streams:
+                for m in self.working_memory.telemetry_streams:
+                    v = self.working_memory.get_latest_metric(m)
+                    if isinstance(v, (int, float, bool)):
+                        facts[m] = v
+            try:
+                from effero.skills.robotics.navigate import _nav_controller
+
+                facts["robot_x"] = _nav_controller.pose.x
+                facts["robot_y"] = _nav_controller.pose.y
+                facts["robot_linear_velocity"] = _nav_controller.linear_velocity_mps
+                facts["robot_emergency_stopped"] = _nav_controller.emergency_stopped
+            except (ImportError, AttributeError):
+                pass
+            return facts
+
         self.planner = Planner(
             router=self.router,
             memory=self.working_memory,
@@ -95,6 +113,7 @@ class Agent:
             approval_handler=self.approval_handler,
             callbacks=self.callbacks,
             require_approval_for=self.config.safety.require_approval_for,
+            facts_provider=_agent_facts_provider,
         )
 
     async def run(self, instruction: str) -> str:
@@ -147,11 +166,16 @@ class Agent:
             try:
                 from effero.adapters.mqtt_matter.client import get_default_client
 
-                mqtt_client = get_default_client()
+                mqtt_client = get_default_client(self.config.iot)
                 mqtt_client.broker_host = self.config.iot.broker_host
                 mqtt_client.broker_port = self.config.iot.broker_port
                 mqtt_client.username = self.config.iot.username
                 mqtt_client.password = self.config.iot.password
+                mqtt_client.use_tls = self.config.iot.use_tls
+                mqtt_client.ca_certs = self.config.iot.ca_certs
+                mqtt_client.certfile = self.config.iot.certfile
+                mqtt_client.keyfile = self.config.iot.keyfile
+                mqtt_client.tls_insecure = self.config.iot.tls_insecure
                 await mqtt_client.connect()
                 logger.info(f"Connected to IoT MQTT broker at {mqtt_client.broker_host}:{mqtt_client.broker_port}")
             except Exception as e:

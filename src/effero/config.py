@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class ModelConfig(BaseModel):
@@ -61,6 +64,13 @@ class FleetConfig(BaseModel):
     default_lease_duration: float = 30.0
 
 
+class ServerConfig(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = 8000
+    api_key: str | None = None
+    cors_origins: list[str] = Field(default_factory=list)
+
+
 class IoTConfig(BaseModel):
     enabled: bool = False
     broker_host: str = "127.0.0.1"
@@ -70,6 +80,11 @@ class IoTConfig(BaseModel):
     client_id: str | None = None
     keepalive: int = 60
     auto_connect: bool = True
+    use_tls: bool = False
+    ca_certs: str | None = None
+    certfile: str | None = None
+    keyfile: str | None = None
+    tls_insecure: bool = False
 
 
 class MCPServerConfig(BaseModel):
@@ -88,6 +103,7 @@ class AgentConfig(BaseModel):
 
 class EfferoConfig(BaseModel):
     agent: AgentConfig = Field(default_factory=AgentConfig)
+    server: ServerConfig = Field(default_factory=ServerConfig)
     perception: PerceptionConfig = Field(default_factory=PerceptionConfig)
     skills: list[str] = Field(default_factory=list)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
@@ -120,13 +136,51 @@ class EfferoConfig(BaseModel):
         env_var = env_map.get(backend)
         if env_var and (key := os.environ.get(env_var)):
             config.agent.model.api_key = key
+
+        # Server API key override from environment
+        if server_key := os.environ.get("EFFERO_API_KEY"):
+            config.server.api_key = server_key
+
+        # IoT MQTT credential overrides from environment
+        if mqtt_pwd := os.environ.get("EFFERO_MQTT_PASSWORD") or os.environ.get("MQTT_PASSWORD"):
+            config.iot.password = mqtt_pwd
+        if mqtt_user := os.environ.get("EFFERO_MQTT_USERNAME") or os.environ.get("MQTT_USERNAME"):
+            config.iot.username = mqtt_user
+
+        for warning in config.validate_security():
+            logger.warning(warning)
+
         return config
 
+    def validate_security(self) -> list[str]:
+        """Audit configuration for insecure defaults and return a list of warnings."""
+        warnings: list[str] = []
+        if not self.server.api_key:
+            warnings.append(
+                "Insecure configuration: server.api_key is not set. "
+                "REST and WebSocket endpoints are open without authentication."
+            )
+        if self.iot.enabled and not self.iot.use_tls:
+            warnings.append(
+                "Insecure configuration: IoT MQTT is enabled without TLS. "
+                "Sensor telemetry and motor commands are sent in plaintext."
+            )
+        if self.iot.tls_insecure:
+            warnings.append(
+                "Insecure configuration: iot.tls_insecure is True. "
+                "Broker certificates will not be validated, allowing MITM attacks."
+            )
+        return warnings
+
     def save(self, path: Path | str | None = None) -> Path:
-        """Serialize configuration model to YAML file."""
+        """Serialize configuration model to YAML file with restrictive file permissions."""
         if path is None:
             path = Path.cwd() / "effero.yaml"
         target_path = Path(path)
         data = self.model_dump(mode="python", exclude_none=True)
         target_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+        try:
+            target_path.chmod(0o600)
+        except OSError:
+            pass
         return target_path

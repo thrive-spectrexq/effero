@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import secrets
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
@@ -70,17 +71,80 @@ def create_app(agent: Agent | None = None) -> FastAPI:
         version=__version__,
     )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
     # Active agent instance
     if agent is None:
         agent = Agent()
+
+    # Configure CORS securely
+    cors_origins = (
+        agent.config.server.cors_origins
+        if agent.config and agent.config.server and agent.config.server.cors_origins
+        else []
+    )
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    else:
+        # Wildcard origin cannot have allow_credentials=True per CORS specification
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=False,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    # API Authentication Setup
+    expected_api_key = (
+        agent.config.server.api_key
+        if agent.config and agent.config.server
+        else None
+    )
+    if not expected_api_key:
+        logger.warning(
+            "Effero API server is running without an API key. "
+            "Anyone who can reach this host can invoke skills or resolve approvals."
+        )
+
+    async def verify_auth(request: Request) -> None:
+        if not expected_api_key:
+            return
+        auth_header = request.headers.get("authorization")
+        api_key_header_val = request.headers.get("x-api-key")
+        token = api_key_header_val
+        if not token and auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+
+        if not token or not secrets.compare_digest(token, expected_api_key):
+            raise HTTPException(
+                status_code=401,
+                detail=(
+                    "Invalid or missing API key. Provide via "
+                    "'Authorization: Bearer <key>' or 'X-API-Key: <key>' header."
+                ),
+            )
+
+    async def verify_ws_auth(websocket: WebSocket) -> bool:
+        if not expected_api_key:
+            return True
+        token = websocket.query_params.get("token") or websocket.query_params.get("api_key")
+        if not token:
+            token = websocket.headers.get("x-api-key")
+        if not token:
+            auth_header = websocket.headers.get("authorization")
+            if auth_header and auth_header.lower().startswith("bearer "):
+                token = auth_header[7:].strip()
+
+        if token and secrets.compare_digest(token, expected_api_key):
+            return True
+
+        await websocket.close(code=1008, reason="Unauthorized: invalid or missing API key")
+        return False
 
     # Active pending approvals tracking
     pending_approvals: dict[str, ApprovalRequest] = {}
@@ -171,7 +235,7 @@ def create_app(agent: Agent | None = None) -> FastAPI:
             skills=agent.available_skills(),
         ).to_dict()
 
-    @app.post("/v1/chat", response_model=ChatResponse)
+    @app.post("/v1/chat", response_model=ChatResponse, dependencies=[Depends(verify_auth)])
     async def chat(req: ChatRequest):
         reply = await agent.chat(req.message)
         return ChatResponse(response=reply)
@@ -201,12 +265,12 @@ def create_app(agent: Agent | None = None) -> FastAPI:
                 items.append({"name": name})
         return {"skills": items}
 
-    @app.post("/v1/skills/invoke")
+    @app.post("/v1/skills/invoke", dependencies=[Depends(verify_auth)])
     async def invoke_skill(req: SkillInvokeRequest):
         res = await agent.planner._execute_skill(req.skill, req.arguments)
         return {"skill": req.skill, "result": res}
 
-    @app.get("/v1/approvals")
+    @app.get("/v1/approvals", dependencies=[Depends(verify_auth)])
     async def list_approvals():
         return [
             {
@@ -220,7 +284,7 @@ def create_app(agent: Agent | None = None) -> FastAPI:
             for req in pending_approvals.values()
         ]
 
-    @app.post("/v1/approvals/{request_id}")
+    @app.post("/v1/approvals/{request_id}", dependencies=[Depends(verify_auth)])
     async def resolve_approval(request_id: str, decision: ApprovalDecisionRequest):
         if request_id not in pending_approvals:
             raise HTTPException(status_code=404, detail="Approval request not found")
@@ -229,20 +293,20 @@ def create_app(agent: Agent | None = None) -> FastAPI:
         pending_approvals.pop(request_id, None)
         return {"request_id": request_id, "resolved": resolved, "approved": decision.approved}
 
-    @app.get("/v1/memory/working")
+    @app.get("/v1/memory/working", dependencies=[Depends(verify_auth)])
     async def get_working_memory():
         return {"messages": agent.working_memory.get_context()}
 
-    @app.get("/v1/memory/episodic")
+    @app.get("/v1/memory/episodic", dependencies=[Depends(verify_auth)])
     async def get_episodic_memory(limit: int = 50):
         return {"history": agent.episodic_memory.load_history(limit=limit)}
 
-    @app.post("/v1/memory/semantic/search")
+    @app.post("/v1/memory/semantic/search", dependencies=[Depends(verify_auth)])
     async def search_semantic_memory(req: SemanticSearchRequest):
         records = agent.semantic_memory.search(req.query, top_k=req.top_k, min_score=req.min_score)
         return {"results": [r.to_dict() for r in records]}
 
-    @app.post("/v1/tasks")
+    @app.post("/v1/tasks", dependencies=[Depends(verify_auth)])
     async def create_a2a_task(req: A2ATaskRequest):
         task = TaskMessage(
             sender=req.sender,
@@ -266,8 +330,11 @@ def create_app(agent: Agent | None = None) -> FastAPI:
         asyncio.create_task(run_task())
         return task.to_dict()
 
-    @app.get("/v1/tasks/{task_id}")
+    @app.get("/v1/tasks/{task_id}", dependencies=[Depends(verify_auth)])
     async def get_a2a_task(task_id: str):
+        if task_id not in tasks:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return tasks[task_id].to_dict()
         if task_id not in tasks:
             raise HTTPException(status_code=404, detail="Task not found")
         return tasks[task_id].to_dict()
@@ -278,6 +345,8 @@ def create_app(agent: Agent | None = None) -> FastAPI:
 
     @app.websocket("/ws/events")
     async def websocket_events(websocket: WebSocket):
+        if not await verify_ws_auth(websocket):
+            return
         await websocket.accept()
         active_websockets.add(websocket)
         try:
@@ -291,6 +360,8 @@ def create_app(agent: Agent | None = None) -> FastAPI:
 
     @app.websocket("/ws/chat")
     async def websocket_chat(websocket: WebSocket):
+        if not await verify_ws_auth(websocket):
+            return
         await websocket.accept()
         try:
             while True:

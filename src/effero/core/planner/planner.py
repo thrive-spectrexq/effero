@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from effero.core.callbacks.base import CallbackList
@@ -46,6 +48,7 @@ class Planner:
         callbacks: CallbackList | None = None,
         require_approval_for: list[str] | None = None,
         max_iterations: int = 10,
+        facts_provider: Callable[..., dict[str, Any]] | None = None,
     ) -> None:
         self.router = router
         self.memory = memory
@@ -55,6 +58,7 @@ class Planner:
         self.callbacks = callbacks or CallbackList()
         self.require_approval_for = require_approval_for or []
         self.max_iterations = max_iterations
+        self.facts_provider = facts_provider
 
     async def run(self, instruction: str) -> str:
         """Execute a plan/act/observe loop for the given instruction."""
@@ -131,7 +135,8 @@ class Planner:
         # Safety kernel check
         if self.safety and self.safety.connected:
             try:
-                decision = await self.safety.check_action(name)
+                facts = self._gather_safety_facts(name, args)
+                decision = await self.safety.check_action(name, facts=facts)
                 action = decision.get("decision", "allow")
                 if action == "deny":
                     reason = decision.get("reason", "Policy denied this action")
@@ -140,6 +145,9 @@ class Planner:
                 elif action == "require_approval":
                     needs_approval = True
                     approval_reason = decision.get("reason", approval_reason)
+                elif action == "limit":
+                    limit_info = decision.get("limit") or decision.get("reason") or "Action constrained by safety limit"
+                    logger.info(f"Safety limit applied to skill '{name}': {limit_info}")
             except Exception as e:
                 logger.warning(f"Safety check failed: {e} — proceeding with caution")
 
@@ -216,3 +224,80 @@ class Planner:
                 }
             )
         return tools
+
+    def _gather_safety_facts(self, name: str, args: dict[str, Any]) -> dict[str, float | bool]:
+        """Gather numeric and boolean facts from arguments, telemetry, and runtime state."""
+        raw_facts: dict[str, Any] = {}
+
+        # 1. Environment / time facts
+        now = datetime.now()
+        raw_facts["time_hour"] = float(now.hour)
+        raw_facts["time.hour"] = float(now.hour)
+        raw_facts["time_minute"] = float(now.minute)
+        raw_facts["time_second"] = float(now.second)
+        raw_facts["weekday"] = float(now.weekday())
+        raw_facts["is_night"] = bool(now.hour >= 23 or now.hour < 6)
+
+        # 2. Skill argument facts (extract numeric/bool parameters)
+        for k, v in args.items():
+            if isinstance(v, bool):
+                raw_facts[k] = v
+                raw_facts[f"arg_{k}"] = v
+            elif isinstance(v, (int, float)):
+                raw_facts[k] = float(v)
+                raw_facts[f"arg_{k}"] = float(v)
+            elif isinstance(v, str):
+                if v.lower() in ("true", "false"):
+                    raw_facts[k] = v.lower() == "true"
+                else:
+                    try:
+                        raw_facts[k] = float(v)
+                    except ValueError:
+                        pass
+            elif isinstance(v, dict):
+                for sub_k, sub_v in v.items():
+                    if isinstance(sub_v, bool):
+                        raw_facts[f"{k}_{sub_k}"] = sub_v
+                        raw_facts[f"{k}.{sub_k}"] = sub_v
+                    elif isinstance(sub_v, (int, float)):
+                        raw_facts[f"{k}_{sub_k}"] = float(sub_v)
+                        raw_facts[f"{k}.{sub_k}"] = float(sub_v)
+
+        # 3. Telemetry metrics from WorkingMemory
+        if hasattr(self.memory, "telemetry_streams"):
+            for metric in self.memory.telemetry_streams:
+                val = self.memory.get_latest_metric(metric)
+                if isinstance(val, bool):
+                    raw_facts[metric] = val
+                elif isinstance(val, (int, float)):
+                    raw_facts[metric] = float(val)
+
+        # 4. External facts provider if registered
+        if self.facts_provider is not None:
+            try:
+                import inspect
+
+                sig = inspect.signature(self.facts_provider)
+                if len(sig.parameters) >= 2:
+                    extra = self.facts_provider(name, args)
+                elif len(sig.parameters) == 1:
+                    extra = self.facts_provider(name)
+                else:
+                    extra = self.facts_provider()
+                if isinstance(extra, dict):
+                    for k, v in extra.items():
+                        if isinstance(v, bool):
+                            raw_facts[k] = v
+                        elif isinstance(v, (int, float)):
+                            raw_facts[k] = float(v)
+            except Exception as e:
+                logger.warning(f"Error calling facts_provider: {e}")
+
+        # Format strictly to float or bool for Rust safety-kernel serde compatibility
+        formatted: dict[str, float | bool] = {}
+        for k, v in raw_facts.items():
+            if isinstance(v, bool):
+                formatted[k] = v
+            elif isinstance(v, (int, float)):
+                formatted[k] = float(v)
+        return formatted

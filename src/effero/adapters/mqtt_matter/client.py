@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import random
+import ssl
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -91,6 +92,12 @@ class MQTTAdapter(DeviceAdapter):
         base_reconnect_delay: float = 0.5,
         max_reconnect_delay: float = 15.0,
         reconnect_jitter: float = 0.2,
+        use_tls: bool = False,
+        ssl_context: ssl.SSLContext | None = None,
+        ca_certs: str | None = None,
+        certfile: str | None = None,
+        keyfile: str | None = None,
+        tls_insecure: bool = False,
     ) -> None:
         self.broker_host = broker_host
         self.broker_port = broker_port
@@ -103,6 +110,12 @@ class MQTTAdapter(DeviceAdapter):
         self.base_reconnect_delay = base_reconnect_delay
         self.max_reconnect_delay = max_reconnect_delay
         self.reconnect_jitter = reconnect_jitter
+        self.use_tls = use_tls
+        self.ssl_context = ssl_context
+        self.ca_certs = ca_certs
+        self.certfile = certfile
+        self.keyfile = keyfile
+        self.tls_insecure = tls_insecure
 
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
@@ -164,8 +177,20 @@ class MQTTAdapter(DeviceAdapter):
         self._reader = None
         self._writer = None
 
-        logger.info(f"Connecting to MQTT broker at {self.broker_host}:{self.broker_port}...")
-        self._reader, self._writer = await asyncio.open_connection(self.broker_host, self.broker_port)
+        ssl_ctx = self.ssl_context
+        if (self.use_tls or self.broker_port == 8883) and ssl_ctx is None:
+            if self.tls_insecure:
+                ssl_ctx = ssl._create_unverified_context()
+            else:
+                ssl_ctx = ssl.create_default_context(cafile=self.ca_certs)
+            if self.certfile:
+                ssl_ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+
+        tls_note = " (TLS enabled)" if ssl_ctx is not None else ""
+        logger.info(f"Connecting to MQTT broker at {self.broker_host}:{self.broker_port}{tls_note}...")
+        self._reader, self._writer = await asyncio.open_connection(
+            self.broker_host, self.broker_port, ssl=ssl_ctx
+        )
 
         # Send CONNECT packet
         conn_packet = ConnectPacket(
@@ -579,9 +604,24 @@ class MQTTAdapter(DeviceAdapter):
 _default_client: MQTTAdapter | None = None
 
 
-def get_default_client() -> MQTTAdapter:
-    """Return the global default MQTT client instance."""
+def get_default_client(config: Any | None = None) -> MQTTAdapter:
+    """Return the global default MQTT client instance, optionally configured from IoTConfig."""
     global _default_client
     if _default_client is None:
-        _default_client = MQTTAdapter()
+        if config is not None:
+            _default_client = MQTTAdapter(
+                broker_host=getattr(config, "broker_host", "localhost"),
+                broker_port=getattr(config, "broker_port", 1883),
+                username=getattr(config, "username", None),
+                password=getattr(config, "password", None),
+                client_id=getattr(config, "client_id", None),
+                keep_alive=getattr(config, "keepalive", 60),
+                use_tls=getattr(config, "use_tls", False),
+                ca_certs=getattr(config, "ca_certs", None),
+                certfile=getattr(config, "certfile", None),
+                keyfile=getattr(config, "keyfile", None),
+                tls_insecure=getattr(config, "tls_insecure", False),
+            )
+        else:
+            _default_client = MQTTAdapter()
     return _default_client

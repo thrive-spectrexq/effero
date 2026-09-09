@@ -77,3 +77,25 @@ def test_working_and_episodic_memory_endpoints() -> None:
         history = resp_episodic.json()["history"]
         assert len(history) >= 1
         assert history[-1]["data"]["action"] == "grasp"
+
+
+def test_websocket_authentication() -> None:
+    from starlette.websockets import WebSocketDisconnect
+
+    agent = Agent()
+    agent.config.server.api_key = "secure-ws-key"
+    app = create_app(agent=agent)
+
+    with TestClient(app) as client:
+        # Connect without auth should fail / disconnect
+        try:
+            with client.websocket_connect("/ws/events") as ws:
+                ws.send_text("ping")
+                raise AssertionError("Should have been rejected")
+        except WebSocketDisconnect:
+            pass
+
+        # Connect with valid query param ?api_key=secure-ws-key should succeed
+        with client.websocket_connect("/ws/events?api_key=secure-ws-key") as ws:
+            ws.send_text("ping")
+
