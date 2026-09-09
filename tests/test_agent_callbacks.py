@@ -133,8 +133,16 @@ async def test_telemetry_and_audit_callbacks():
             LLMResponse(
                 content="Calling multiply",
                 tool_calls=[ToolCall(id="c2", name="math.multiply", arguments={"a": 2, "b": 5})],
+                usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                model="gpt-4o-mini",
+                backend="openai",
             ),
-            LLMResponse(content="Result is 10"),
+            LLMResponse(
+                content="Result is 10",
+                usage={"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25},
+                model="gpt-4o-mini",
+                backend="openai",
+            ),
         ]
     )
 
@@ -161,10 +169,15 @@ async def test_telemetry_and_audit_callbacks():
     assert summary["skill_counts"]["math.multiply"] == 1
     assert summary["safety_decisions"]["approved"] == 1
     assert summary["average_agent_latency_s"] > 0.0
+    assert summary["total_prompt_tokens"] == 30
+    assert summary["total_completion_tokens"] == 10
+    assert summary["total_tokens"] == 40
+    assert summary["estimated_cost_usd"] > 0.0
 
     # Verify audit records
     event_types = [r["event_type"] for r in audit.audit_records]
     assert "agent_start" in event_types
+    assert "llm_response" in event_types
     assert "plan_generated" in event_types
     assert "safety_check" in event_types
     assert "skill_call" in event_types
@@ -174,3 +187,55 @@ async def test_telemetry_and_audit_callbacks():
     # Verify working memory recorded telemetry streams
     assert memory.get_latest_metric("agent_runs") == 1
     assert memory.get_latest_metric("skill_calls_math.multiply") == 1
+    assert memory.get_latest_metric("tokens_total") == 40
+
+
+def test_telemetry_token_and_cost_estimation():
+    telemetry = TelemetryCallback()
+
+    # Local backend should result in 0 cost
+    local_resp = LLMResponse(
+        content="local hi",
+        usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+        model="qwen3:8b",
+        backend="ollama",
+    )
+    telemetry.on_llm_response(local_resp)
+    assert telemetry.total_tokens == 150
+    assert telemetry.estimated_cost_usd == 0.0
+
+    # Cloud backend with claude-3-5-sonnet
+    cloud_resp = LLMResponse(
+        content="cloud hi",
+        usage={"prompt_tokens": 1000, "completion_tokens": 200, "total_tokens": 1200},
+        model="claude-3-5-sonnet-20241022",
+        backend="anthropic",
+    )
+    telemetry.on_llm_response(cloud_resp)
+    assert telemetry.total_tokens == 1350
+    # 1000 * 3.0 / 1e6 + 200 * 15.0 / 1e6 = 0.003 + 0.003 = 0.006
+    assert round(telemetry.estimated_cost_usd, 4) == 0.006
+
+
+def test_telemetry_export_prometheus():
+    telemetry = TelemetryCallback()
+    telemetry.on_agent_start("test prompt")
+    telemetry.on_skill_before_execute("robotics.arm.move", {"x": 1.0})
+    telemetry.on_safety_check("robotics.arm.move", {"x": 1.0}, approved=True)
+    telemetry.on_llm_response(
+        LLMResponse(
+            content="ok",
+            usage={"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
+            model="gpt-4o",
+            backend="openai",
+        )
+    )
+
+    prom_text = telemetry.export_prometheus()
+    assert "effero_agent_runs_total 1" in prom_text
+    assert 'effero_skill_calls_total{skill="robotics.arm.move"} 1' in prom_text
+    assert 'effero_safety_decisions_total{decision="approved"} 1' in prom_text
+    assert 'effero_tokens_total{type="prompt"} 50' in prom_text
+    assert 'effero_tokens_total{type="completion"} 20' in prom_text
+    assert 'effero_tokens_total{type="total"} 70' in prom_text
+    assert "effero_cost_usd_total " in prom_text

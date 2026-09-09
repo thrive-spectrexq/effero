@@ -306,7 +306,10 @@ class ArmCollisionValidator:
                 if dist <= self.link_radius:
                     return (
                         False,
-                        f"Link {link_idx} collides with obstacle {obs_idx} ({type(obstacle).__name__}): clearance {dist - self.link_radius:.4f}m",
+                        (
+                            f"Link {link_idx} collides with obstacle {obs_idx} "
+                            f"({type(obstacle).__name__}): clearance {dist - self.link_radius:.4f}m"
+                        ),
                     )
 
         return True, None

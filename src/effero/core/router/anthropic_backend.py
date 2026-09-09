@@ -20,8 +20,8 @@ class AnthropicBackend(LLMBackend):
         try:
             import anthropic
             from anthropic import AsyncAnthropic
-        except ImportError:
-            raise RuntimeError("anthropic package is not installed. Install it with `pip install anthropic`.")
+        except ImportError as e:
+            raise RuntimeError("anthropic package is not installed. Install it with `pip install anthropic`.") from e
 
         if not self.api_key:
             raise RuntimeError("Anthropic API key is not set.")

@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are Effero, an AI agent that can perceive, reason, and act in both the digital and physical world.
+SYSTEM_PROMPT = """You are Effero, an AI agent that can perceive, reason, and act
+in both the digital and physical world.
 
 You have access to skills (tools) that let you interact with computers, IoT devices, robots, and sensors.
 When the user asks you to do something:
@@ -43,6 +44,7 @@ class Planner:
         safety_client: SafetyClient | None = None,
         approval_handler: ApprovalHandler | None = None,
         callbacks: CallbackList | None = None,
+        require_approval_for: list[str] | None = None,
         max_iterations: int = 10,
     ) -> None:
         self.router = router
@@ -51,6 +53,7 @@ class Planner:
         self.safety = safety_client  # SafetyClient or None
         self.approval_handler = approval_handler  # ApprovalHandler or None
         self.callbacks = callbacks or CallbackList()
+        self.require_approval_for = require_approval_for or []
         self.max_iterations = max_iterations
 
     async def run(self, instruction: str) -> str:
@@ -69,6 +72,7 @@ class Planner:
                 tools=tools if tools else None,
             )
             response = await self.router.complete(request)
+            self.callbacks.on_llm_response(response)
             self.callbacks.on_plan_generated(response)
 
             # If LLM responded with text and no tool calls, we're done
@@ -114,6 +118,15 @@ class Planner:
             or getattr(skill_spec, "safety_class", None) == "act_with_approval"
         )
         approval_reason = f"Skill '{name}' has declared safety class {getattr(skill_spec, 'safety_class', 'unknown')}"
+
+        if not needs_approval and self.require_approval_for:
+            import fnmatch
+
+            for pattern in self.require_approval_for:
+                if fnmatch.fnmatch(name, pattern) or name.startswith(pattern.rstrip("*")):
+                    needs_approval = True
+                    approval_reason = f"Skill '{name}' matches require_approval_for pattern '{pattern}'"
+                    break
 
         # Safety kernel check
         if self.safety and self.safety.connected:

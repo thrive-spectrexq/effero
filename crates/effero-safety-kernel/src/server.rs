@@ -1,5 +1,5 @@
 //! A minimal local IPC server exposing [`crate::engine::Engine`] over a
-//! Unix domain socket, so Effero's Python orchestrator can call into the
+//! TCP socket (default 127.0.0.1:9400), so Effero's Python orchestrator can call into the
 //! guardrail engine as a separate, independently-running process rather
 //! than an in-process Python module.
 //!

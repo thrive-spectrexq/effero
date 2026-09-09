@@ -20,8 +20,10 @@ class GoogleBackend(LLMBackend):
         try:
             import google.genai as genai
             from google.genai import types
-        except ImportError:
-            raise RuntimeError("google-genai package is not installed. Install it with `pip install google-genai`.")
+        except ImportError as e:
+            raise RuntimeError(
+                "google-genai package is not installed. Install it with `pip install google-genai`."
+            ) from e
 
         if not self.api_key:
             raise RuntimeError("Gemini API key is not set.")

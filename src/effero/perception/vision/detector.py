@@ -35,8 +35,8 @@ class YOLODetector(DetectionBackend):
         try:
             import ultralytics
             from PIL import Image
-        except ImportError:
-            raise ImportError("Please install ultralytics and Pillow: pip install ultralytics pillow")
+        except ImportError as e:
+            raise ImportError("Please install ultralytics and Pillow: pip install ultralytics pillow") from e
 
         self.model_name = model_name
         self.confidence_threshold = confidence_threshold

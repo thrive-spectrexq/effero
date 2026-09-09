@@ -22,8 +22,8 @@ class OpenAIBackend(LLMBackend):
         try:
             import openai
             from openai import AsyncOpenAI
-        except ImportError:
-            raise RuntimeError("openai package is not installed. Install it with `pip install openai`.")
+        except ImportError as e:
+            raise RuntimeError("openai package is not installed. Install it with `pip install openai`.") from e
 
         if not self.api_key:
             raise RuntimeError("OpenAI API key is not set.")

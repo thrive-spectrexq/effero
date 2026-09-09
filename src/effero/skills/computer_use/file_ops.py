@@ -55,3 +55,30 @@ async def list_dir(path: str) -> dict:
         return {"status": "success", "path": path, "items": items}
     except Exception as e:
         return {"status": "error", "path": path, "error": str(e)}
+
+
+@skill(
+    name="computer_use.file.delete",
+    description="Delete a file or directory tree",
+    safety_class=SafetyClass.ACT_WITH_APPROVAL,
+)
+async def delete_file(path: str, recursive: bool = False) -> dict:
+    try:
+        p = Path(path)
+        if not p.exists():
+            return {"status": "error", "path": path, "error": f"Path '{path}' does not exist"}
+        if p.is_dir():
+            if not recursive:
+                return {
+                    "status": "error",
+                    "path": path,
+                    "error": f"Path '{path}' is a directory. Set recursive=True to delete directory trees.",
+                }
+            import shutil
+
+            shutil.rmtree(p)
+        else:
+            p.unlink()
+        return {"status": "success", "path": path}
+    except Exception as e:
+        return {"status": "error", "path": path, "error": str(e)}

@@ -150,3 +150,36 @@ class CallbackApprovalHandler(ApprovalHandler):
             )
             return True
         return False
+
+
+class GraduatedApprovalHandler(ApprovalHandler):
+    """Graduated approval handler: auto-approves safe classes, gates ACT_WITH_APPROVAL via delegate.
+
+    - READ_ONLY: auto-approved
+    - ACT_AUTONOMOUS: auto-approved
+    - ACT_WITH_APPROVAL: delegates to secondary handler (e.g. Console or Callback)
+    - ACT_RESTRICTED: denied by default (simulation/sandbox only)
+    """
+
+    def __init__(self, delegate: ApprovalHandler | None = None):
+        self.delegate = delegate or ConsoleApprovalHandler()
+
+    async def request_approval(self, request: ApprovalRequest) -> ApprovalResponse:
+        norm_class = request.safety_class.lower()
+
+        if norm_class in ("read_only", "act_autonomous"):
+            return ApprovalResponse(
+                request_id=request.id,
+                approved=True,
+                responder="graduated_auto",
+                comment=f"Auto-approved {norm_class} action",
+            )
+        elif norm_class == "act_restricted":
+            return ApprovalResponse(
+                request_id=request.id,
+                approved=False,
+                responder="graduated_auto",
+                comment="Denied act_restricted action (simulation only)",
+            )
+        else:
+            return await self.delegate.request_approval(request)

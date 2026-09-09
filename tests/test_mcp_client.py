@@ -22,9 +22,16 @@ for line in sys.stdin:
         req = json.loads(line)
         method = req.get("method")
         req_id = req.get("id")
-
         if method == "initialize":
-            resp = {"jsonrpc": "2.0", "id": req_id, "result": {"protocolVersion": "2024-11-05", "serverInfo": {"name": "test"}, "capabilities": {}}}
+            resp = {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "serverInfo": {"name": "test"},
+                    "capabilities": {},
+                },
+            }
             sys.stdout.write(json.dumps(resp) + "\\n")
             sys.stdout.flush()
         elif method == "notifications/initialized":

@@ -1,9 +1,5 @@
 # Example Effero project config: a fully local, voice-controlled home
 # automation agent. See examples/local-smart-home/README.md for context.
-#
-# NOTE: this describes the target shape of the config once `effero run`
-# is implemented (see ROADMAP.md in the repo root) -- it is not yet
-# a runnable config in this scaffold.
 
 agent:
   name: home-and-desk-assistant
@@ -22,10 +18,11 @@ perception:
     backend: yolov9
 
 skills:
-  - iot.lights # via MQTT/Matter
-  - iot.thermostat
-  - computer_use.browser
+  - iot.lights.* # via MQTT/Matter
+  - iot.thermostat.*
+  - computer_use.browser.*
 
 safety:
+  enabled: true
   policy: ../../src/effero/safety/policies/example.yaml
-  require_approval_for: [computer_use.file_delete]
+  require_approval_for: [computer_use.file.*]

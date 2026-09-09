@@ -20,7 +20,8 @@ async def test_real_browser_automation() -> None:
       <body>
         <h1 id="header">Effero Robotics & AI</h1>
         <input id="search-box" type="text" />
-        <button id="action-btn" onclick="document.getElementById('header').innerText = 'Action Triggered!'">Submit</button>
+        <button id="action-btn"
+          onclick="document.getElementById('header').innerText = 'Action Triggered!'">Submit</button>
       </body>
     </html>
     """

@@ -86,8 +86,10 @@ class Bid:
     unsealed_payload: dict[str, Any] | None = None
 
     def compute_commitment(self, salt: str) -> str:
-        """Compute SHA-256 cryptographic commitment hash for sealed-bid commit-reveal."""
-        payload = f"{self.task_id}:{self.node_id}:{self.cost:.6f}:{self.estimated_duration:.6f}:{self.capability_score:.6f}:{salt}"
+        payload = (
+            f"{self.task_id}:{self.node_id}:{self.cost:.6f}:"
+            f"{self.estimated_duration:.6f}:{self.capability_score:.6f}:{salt}"
+        )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def verify_commitment(self, salt: str, commitment_hash: str | None = None) -> bool:

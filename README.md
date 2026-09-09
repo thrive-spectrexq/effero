@@ -131,49 +131,6 @@ Effero is organized in six layers. Data flows up from perception, through cognit
 
 ---
 
-## Repository Layout
-
-The Python core lives under `src/effero/` (a standard `src`-layout
-package, so the repo root and the importable package don't collide);
-`crates/` holds the two Rust components described under Core Principles
-above.
-
-```
-effero/
-├── src/effero/
-│   ├── core/                  # Orchestrator, planner, memory, model router
-│   │   ├── agent/             #   plan/act/observe loop, task graph
-│   │   ├── memory/            #   working, episodic, semantic (vector) memory
-│   │   ├── planner/           #   task decomposition, replanning
-│   │   └── router/            #   LLM backend routing & fallback
-│   ├── perception/
-│   │   ├── vision/            #   detection, segmentation, VLA, OCR adapters
-│   │   ├── audio/              #   wake-word, VAD, ASR, TTS adapters
-│   │   └── sensors/            #   IMU, LiDAR, generic telemetry fusion
-│   ├── skills/                 # MCP-native skill definitions
-│   │   ├── robotics/
-│   │   ├── iot/
-│   │   ├── computer_use/
-│   │   └── community/
-│   ├── adapters/                # Device Abstraction Layer
-│   │   ├── ros2/
-│   │   ├── mqtt_matter/
-│   │   ├── serial_gpio/
-│   │   └── cloud_api/
-│   ├── safety/                   # Guardrail types, policy examples (Python side)
-│   ├── protocols/                # MCP server/client, A2A, Wyoming voice protocol
-│   ├── interfaces/                # CLI, web dashboard, mobile shell, voice loop
-│   └── sdk/                       # The @skill decorator and skill registry
-├── crates/                        # Rust: safety kernel + edge-device MCP server
-│   ├── effero-safety-kernel/      #   the independent, LLM-free guardrail engine
-│   └── effero-edge-mcp/           #   MCP server template for constrained devices
-├── examples/                      # Reference builds (see below)
-├── docs/
-└── tests/
-```
-
----
-
 ## Quickstart
 
 > Effero targets Python 3.11+ and runs on Linux, macOS, Windows (WSL2), and edge boards (Raspberry Pi 5, Jetson Orin).

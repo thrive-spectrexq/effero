@@ -254,9 +254,9 @@ class MCPClient:
         # Wait for response with timeout
         try:
             return await asyncio.wait_for(future, timeout=15.0)
-        except TimeoutError:
+        except TimeoutError as e:
             self._pending_requests.pop(req_id, None)
-            raise TimeoutError(f"Timeout waiting for MCP response to method '{method}' (id={req_id})")
+            raise TimeoutError(f"Timeout waiting for MCP response to method '{method}' (id={req_id})") from e
 
     async def _send_notification(self, method: str, params: dict[str, Any]) -> None:
         """Send a JSON-RPC 2.0 notification."""

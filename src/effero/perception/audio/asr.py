@@ -33,8 +33,8 @@ class OpenAIWhisperASR(ASRBackend):
     def __init__(self, api_key: str | None = None) -> None:
         try:
             from openai import AsyncOpenAI
-        except ImportError:
-            raise ImportError("Please install openai: pip install openai")
+        except ImportError as e:
+            raise ImportError("Please install openai: pip install openai") from e
 
         self.client = AsyncOpenAI(api_key=api_key)
 
@@ -60,8 +60,8 @@ class FasterWhisperASR(ASRBackend):
     def __init__(self, model_size: str = "small.en") -> None:
         try:
             import faster_whisper
-        except ImportError:
-            raise ImportError("Please install faster-whisper: pip install faster-whisper")
+        except ImportError as e:
+            raise ImportError("Please install faster-whisper: pip install faster-whisper") from e
 
         self.model_size = model_size
         self._model = None

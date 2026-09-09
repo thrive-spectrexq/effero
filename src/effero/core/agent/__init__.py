@@ -94,6 +94,7 @@ class Agent:
             safety_client=self.safety,
             approval_handler=self.approval_handler,
             callbacks=self.callbacks,
+            require_approval_for=self.config.safety.require_approval_for,
         )
 
     async def run(self, instruction: str) -> str:
@@ -180,6 +181,23 @@ class Agent:
 
         # 5. Load built-in skills
         self._load_builtin_skills()
+
+        # 6. Apply skill configuration filtering if specified in effero.yaml
+        if self.config.skills:
+            import fnmatch
+
+            filtered_reg = SkillRegistry()
+            all_names = list(self.skills.list())
+            for pattern in self.config.skills:
+                matches = 0
+                for skill_name in all_names:
+                    if fnmatch.fnmatch(skill_name, pattern) or skill_name.startswith(pattern.rstrip("*")):
+                        filtered_reg.register(self.skills.get(skill_name))
+                        matches += 1
+                if matches == 0:
+                    logger.warning(f"Configured skill pattern '{pattern}' matched 0 registered skills.")
+            self.skills = filtered_reg
+            self.planner.skills = filtered_reg
 
         logger.info(f"Agent '{self.config.agent.name}' started with {len(self.skills.list())} skills")
 

@@ -86,7 +86,8 @@ class ArmKinematicModel:
             )
         if dist_3d < self.min_reach:
             raise ValueError(
-                f"Target position ({target_x}, {target_y}, {target_z}) within minimum singularity zone ({self.min_reach:.2f}m)"
+                f"Target position ({target_x}, {target_y}, {target_z}) "
+                f"within minimum singularity zone ({self.min_reach:.2f}m)"
             )
 
         # Base angle (yaw)

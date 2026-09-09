@@ -1,10 +1,8 @@
 """Runtime guardrail engine: policy-as-code checks that run independently
 of the LLM, between the skill layer and the Device Abstraction Layer.
 
-See safety/policies/example.yaml for the intended policy shape and the
-"Safety & Governance" section of the top-level README for the design
-rationale. The verification/grounding logic itself is not implemented in
-this scaffold -- see ROADMAP.md in the repo root.
+Evaluates declarative policies against live telemetry and device facts via
+the high-performance out-of-process Rust safety kernel daemon (TCP 127.0.0.1:9400).
 """
 
 from __future__ import annotations
@@ -19,6 +17,7 @@ from effero.safety.approval import (
     AutoApprovalHandler,
     CallbackApprovalHandler,
     ConsoleApprovalHandler,
+    GraduatedApprovalHandler,
 )
 from effero.safety.client import SafetyClient
 from effero.safety.daemon import SafetyDaemonManager
@@ -47,4 +46,5 @@ __all__ = [
     "ConsoleApprovalHandler",
     "AutoApprovalHandler",
     "CallbackApprovalHandler",
+    "GraduatedApprovalHandler",
 ]

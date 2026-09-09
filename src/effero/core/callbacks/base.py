@@ -44,6 +44,10 @@ class AgentCallback:
         """Called when safety kernel or HITL evaluates an action."""
         pass
 
+    def on_llm_response(self, response: Any) -> None:
+        """Called when an LLM backend returns a response containing text, tool calls, and token usage."""
+        pass
+
 
 class CallbackList:
     """Manages a sequence of callbacks with exception isolation."""
@@ -104,3 +108,10 @@ class CallbackList:
                 cb.on_safety_check(skill_name, arguments, approved, reason)
             except Exception as e:
                 logger.warning(f"Callback {cb.__class__.__name__}.on_safety_check failed: {e}")
+
+    def on_llm_response(self, response: Any) -> None:
+        for cb in self.callbacks:
+            try:
+                cb.on_llm_response(response)
+            except Exception as e:
+                logger.warning(f"Callback {cb.__class__.__name__}.on_llm_response failed: {e}")

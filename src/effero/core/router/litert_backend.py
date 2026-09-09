@@ -55,10 +55,11 @@ class LiteRTLMBackend(LLMBackend):
 
         try:
             import litert_lm
-        except ImportError:
+        except ImportError as e:
             raise RuntimeError(
-                "litert-lm-api package is not installed. Install it with `pip install effero[litert]` or `pip install litert-lm-api`."
-            )
+                "litert-lm-api package is not installed. Install it with `pip install effero[litert]` "
+                "or `pip install litert-lm-api`."
+            ) from e
 
         backend_target = self._resolve_backend_type(litert_lm)
         kwargs: dict[str, Any] = {}

@@ -15,6 +15,7 @@ from effero.safety.approval import (
     ApprovalRequest,
     AutoApprovalHandler,
     CallbackApprovalHandler,
+    GraduatedApprovalHandler,
 )
 from effero.sdk.skill import SafetyClass, SkillRegistry, SkillSpec
 
@@ -114,3 +115,34 @@ async def test_callback_approval_handler() -> None:
     assert len(received_requests) == 1
     assert res.approved is True
     assert res.comment == "Operator granted access"
+
+
+@pytest.mark.asyncio
+async def test_graduated_approval_handler() -> None:
+    """Verify GraduatedApprovalHandler auto-approves read_only/act_autonomous and delegates act_with_approval."""
+    delegate = AutoApprovalHandler(approve_all=False)  # Delegate rejects
+    handler = GraduatedApprovalHandler(delegate=delegate)
+
+    # 1. READ_ONLY -> auto-approved
+    req_ro = ApprovalRequest(skill_name="iot.sensors.read", safety_class="read_only")
+    res_ro = await handler.request_approval(req_ro)
+    assert res_ro.approved is True
+    assert res_ro.responder == "graduated_auto"
+
+    # 2. ACT_AUTONOMOUS -> auto-approved
+    req_auto = ApprovalRequest(skill_name="robotics.arm.home", safety_class="act_autonomous")
+    res_auto = await handler.request_approval(req_auto)
+    assert res_auto.approved is True
+    assert res_auto.responder == "graduated_auto"
+
+    # 3. ACT_RESTRICTED -> auto-denied
+    req_rest = ApprovalRequest(skill_name="untrusted.skill", safety_class="act_restricted")
+    res_rest = await handler.request_approval(req_rest)
+    assert res_rest.approved is False
+    assert res_rest.responder == "graduated_auto"
+
+    # 4. ACT_WITH_APPROVAL -> delegated to delegate handler (which rejects)
+    req_with_app = ApprovalRequest(skill_name="robotics.arm.move_to", safety_class="act_with_approval")
+    res_with_app = await handler.request_approval(req_with_app)
+    assert res_with_app.approved is False
+    assert res_with_app.responder == delegate.responder_name

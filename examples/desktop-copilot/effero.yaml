@@ -5,9 +5,12 @@ agent:
     model: gpt-4o
 
 skills:
-  - computer_use.shell
-  - computer_use.file
-  - computer_use.browser
+  - computer_use.shell.*
+  - computer_use.file.*
+  - computer_use.browser.*
 
 safety:
-  enabled: false
+  enabled: true
+  require_approval_for:
+    - computer_use.shell.*
+    - computer_use.file.*

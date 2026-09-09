@@ -25,8 +25,8 @@ class OpenAITTS(TTSBackend):
     def __init__(self, model: str = "tts-1", voice: str = "alloy", api_key: str | None = None) -> None:
         try:
             from openai import AsyncOpenAI
-        except ImportError:
-            raise ImportError("Please install openai: pip install openai")
+        except ImportError as e:
+            raise ImportError("Please install openai: pip install openai") from e
 
         self.client = AsyncOpenAI(api_key=api_key)
         self.model = model

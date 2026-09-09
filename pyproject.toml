@@ -89,7 +89,7 @@ extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-ignore = ["B904", "E501"]
+ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 # Backend adapter modules check optional package availability at runtime via import

@@ -24,6 +24,7 @@
 | `computer_use.desktop.send_hotkey` | `act_with_approval` | Send hotkey combination with destructive combination prevention. |
 | `computer_use.desktop.set_safety_bounds` | `act_with_approval` | Configure cursor safety bounding box and enforcement policy ('raise' or 'clamp'). |
 | `computer_use.desktop.type_text` | `act_with_approval` | Type text string via low-level native keyboard unicode dispatch. |
+| `computer_use.file.delete` | `act_with_approval` | Delete a file or directory tree |
 | `computer_use.file.list_dir` | `read_only` | List directory contents |
 | `computer_use.file.read` | `read_only` | Read a file |
 | `computer_use.file.write` | `act_with_approval` | Write to a file |

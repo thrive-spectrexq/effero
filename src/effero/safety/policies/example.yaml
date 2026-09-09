@@ -1,9 +1,7 @@
 # Example Effero safety policy.
 #
-# This documents the intended shape of a policy file (see the "Safety &
-# Governance" section of the top-level README). The runtime grounding /
-# verification logic that actually evaluates these rules against live
-# device state is not implemented in this scaffold yet -- see ROADMAP.md.
+# Rules are evaluated at runtime by the out-of-process Rust safety kernel
+# daemon (crates/effero-safety-kernel) against live device telemetry and facts.
 
 version: 1
 

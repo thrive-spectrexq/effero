@@ -59,6 +59,38 @@ for name in registry.list():
         if param.annotation is param.empty and param_name != "self":
             warnings.append(f"  {spec.name}: parameter '{param_name}' has no type annotation")
 
+# Check 4: Validate example effero.yaml configs against registered skills
+import fnmatch
+import yaml
+
+registered_names = set(registry.list())
+repo_root = Path(__file__).resolve().parents[1]
+for example_yaml in repo_root.glob("examples/**/effero.yaml"):
+    try:
+        data = yaml.safe_load(example_yaml.read_text(encoding="utf-8")) or {}
+        # Check declared skills
+        for pattern in data.get("skills", []):
+            clean_pat = pattern.split("#")[0].strip()
+            matches = [
+                n for n in registered_names if fnmatch.fnmatch(n, clean_pat) or n.startswith(clean_pat.rstrip("*"))
+            ]
+            if not matches:
+                errors.append(f"  {example_yaml.relative_to(repo_root)}: skill '{pattern}' matches 0 registered skills")
+
+        # Check require_approval_for
+        safety_sec = data.get("safety", {})
+        for pattern in safety_sec.get("require_approval_for", []):
+            clean_pat = pattern.split("#")[0].strip()
+            matches = [
+                n for n in registered_names if fnmatch.fnmatch(n, clean_pat) or n.startswith(clean_pat.rstrip("*"))
+            ]
+            if not matches:
+                errors.append(
+                    f"  {example_yaml.relative_to(repo_root)}: require_approval_for '{pattern}' matches 0 registered skills"
+                )
+    except Exception as e:
+        warnings.append(f"  {example_yaml.relative_to(repo_root)}: could not parse YAML: {e}")
+
 print(f"\nSkill registry lint: checked {skill_count} skills")
 
 if warnings:
