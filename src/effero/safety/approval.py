@@ -47,19 +47,50 @@ class ApprovalHandler(ABC):
 
 
 class AutoApprovalHandler(ApprovalHandler):
-    """Approval handler that always approves or rejects (used for testing or simulations)."""
+    """Approval handler that resolves requests automatically.
 
-    def __init__(self, approve_all: bool = True, responder_name: str = "auto"):
+    Supports:
+    - All-or-nothing mode (default: `approve_all=True` or `approve_all=False`)
+    - Graduated per-SafetyClass mode (`graduated=True`):
+      - READ_ONLY / ACT_AUTONOMOUS: auto-approved (True)
+      - ACT_RESTRICTED: auto-denied (False, simulation only)
+      - ACT_WITH_APPROVAL: evaluates according to `approve_approval_gated` (default False)
+    """
+
+    def __init__(
+        self,
+        approve_all: bool = True,
+        graduated: bool = False,
+        approve_approval_gated: bool = False,
+        responder_name: str = "auto",
+    ) -> None:
         self.approve_all = approve_all
+        self.graduated = graduated
+        self.approve_approval_gated = approve_approval_gated
         self.responder_name = responder_name
         self.history: list[tuple[ApprovalRequest, ApprovalResponse]] = []
 
     async def request_approval(self, request: ApprovalRequest) -> ApprovalResponse:
+        norm_class = (request.safety_class or "act_with_approval").lower()
+        if self.graduated:
+            if norm_class in ("read_only", "act_autonomous"):
+                approved = True
+                comment = f"Auto-approved graduated {norm_class}"
+            elif norm_class == "act_restricted":
+                approved = False
+                comment = "Denied act_restricted in graduated auto mode"
+            else:
+                approved = self.approve_approval_gated
+                comment = f"Graduated auto-decision for {norm_class}: {approved}"
+        else:
+            approved = self.approve_all
+            comment = "Automatic decision by policy/simulation"
+
         decision = ApprovalResponse(
             request_id=request.id,
-            approved=self.approve_all,
+            approved=approved,
             responder=self.responder_name,
-            comment="Automatic decision by policy/simulation",
+            comment=comment,
         )
         self.history.append((request, decision))
         return decision

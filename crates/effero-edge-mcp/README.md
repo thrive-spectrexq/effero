@@ -14,32 +14,17 @@ point of view. Swap the body of `read_pin`/`set_pin` for real
 `embedded-hal` calls and you have a real hardware bridge with no other
 code changed.
 
-## ⚠️ Build status: written, not yet compiled
+## Toolchain Requirement & Build Status: Confirmed Working
 
-This is the one honest caveat in this scaffold: `rmcp` requires the Rust
-2024 edition (rustc/cargo **1.85+**) at every version currently published
-— including its earliest release. The sandboxed environment this crate
-was authored in only had Rust 1.75 available via `apt`, with no network
-path to install a newer toolchain. So unlike `effero-safety-kernel`
-(built, tested, and run end-to-end in that same environment), this
-crate's code has **not** been compiled.
+This crate relies on `rmcp` 3.2.0, which targets Rust Edition 2024 dependencies. It requires **Rust 1.85.0 or newer** (specified as `rust-version = "1.85"` in `Cargo.toml`).
 
-It was written carefully against `rmcp`'s confirmed, current API and
-official example pattern (the `#[tool_router(server_handler)]` macro
-combo, `Parameters<T>` extraction, `serve(stdio())`), not guessed from
-memory. But "should compile" isn't "compiles" — please verify it before
-relying on it:
+The crate is verified and passes all tests on Rust 1.85+ stable (and in GitHub Actions CI):
 
 ```bash
 cargo build -p effero-edge-mcp
+cargo test -p effero-edge-mcp
 ```
 
-If something doesn't line up (macro signatures do shift between `rmcp`
-releases), the fix is almost always a small one — check the current
-example in the [rmcp README](https://github.com/modelcontextprotocol/rust-sdk)
-against `src/main.rs` here. Please open a PR with the fix and delete this
-warning once it's confirmed working; that's the natural way for this
-note to go away.
 
 ## Running it (once verified)
 

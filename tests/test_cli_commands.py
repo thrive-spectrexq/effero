@@ -75,3 +75,57 @@ def test_cli_config_get_and_set(tmp_path: Path, capsys: pytest.CaptureFixture[st
     assert code == 0
     captured = capsys.readouterr()
     assert "qwen3:8b" in captured.out
+
+
+def test_cli_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--version"])
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "effero" in captured.out.lower()
+
+
+def test_cli_init_existing_directory_raises(tmp_path: Path) -> None:
+    target_dir = tmp_path / "already_exists"
+    target_dir.mkdir()
+    with pytest.raises(FileExistsError):
+        main(["init", str(target_dir)])
+
+
+@pytest.mark.asyncio
+async def test_cli_run_chat(capsys: pytest.CaptureFixture[str]) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    from effero.interfaces.cli import run_chat
+
+    with patch("effero.core.agent.Agent.chat", new_callable=AsyncMock) as mock_chat:
+        mock_chat.return_value = "Agent direct reply"
+        await run_chat("test direct message")
+        captured = capsys.readouterr()
+        assert "Agent direct reply" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_cli_run_repl(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    from effero.interfaces.cli import run_repl
+
+    cfg_file = tmp_path / "effero.yaml"
+    cfg_file.write_text("agent:\n  name: test-repl\nsafety:\n  enabled: false\n", encoding="utf-8")
+
+    with patch("effero.core.agent.Agent.chat", new_callable=AsyncMock) as mock_chat:
+        mock_chat.return_value = "Repl response"
+        inputs = iter(["hello", "", "exit"])
+        with patch("builtins.input", side_effect=lambda *args: next(inputs)):
+            await run_repl(str(cfg_file))
+            mock_chat.assert_called_once_with("hello")
+
+
+def test_cli_serve_command() -> None:
+    from unittest.mock import patch
+
+    with patch("uvicorn.run") as mock_uvicorn:
+        code = main(["serve", "--host", "127.0.0.1", "--port", "8088"])
+        assert code == 0
+        mock_uvicorn.assert_called_once()

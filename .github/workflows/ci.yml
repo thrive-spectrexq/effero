@@ -40,6 +40,9 @@ jobs:
       - name: Lint skill registry
         run: python scripts/lint_skills.py
 
+      - name: Check requirements-dev.lock freshness
+        run: python scripts/check_lock_freshness.py
+
       - name: Install Playwright browsers
         run: playwright install --with-deps chromium
 

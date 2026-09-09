@@ -146,3 +146,28 @@ async def test_graduated_approval_handler() -> None:
     res_with_app = await handler.request_approval(req_with_app)
     assert res_with_app.approved is False
     assert res_with_app.responder == delegate.responder_name
+
+
+@pytest.mark.asyncio
+async def test_auto_approval_handler_graduated_mode() -> None:
+    """Verify AutoApprovalHandler graduated mode auto-approves safe classes and gates approval-required actions."""
+    handler = AutoApprovalHandler(graduated=True, approve_approval_gated=False)
+
+    res_ro = await handler.request_approval(ApprovalRequest(skill_name="read", safety_class="read_only"))
+    assert res_ro.approved is True
+
+    res_auto = await handler.request_approval(ApprovalRequest(skill_name="auto", safety_class="act_autonomous"))
+    assert res_auto.approved is True
+
+    res_rest = await handler.request_approval(ApprovalRequest(skill_name="rest", safety_class="act_restricted"))
+    assert res_rest.approved is False
+
+    res_gated = await handler.request_approval(ApprovalRequest(skill_name="gated", safety_class="act_with_approval"))
+    assert res_gated.approved is False
+
+    # Now with approve_approval_gated=True
+    handler_permissive = AutoApprovalHandler(graduated=True, approve_approval_gated=True)
+    res_gated_ok = await handler_permissive.request_approval(
+        ApprovalRequest(skill_name="gated", safety_class="act_with_approval")
+    )
+    assert res_gated_ok.approved is True

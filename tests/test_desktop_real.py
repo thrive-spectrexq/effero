@@ -541,3 +541,51 @@ async def test_async_skill_execution() -> None:
     wins_res = await cu.list_windows()
     assert wins_res["status"] == "success"
     assert isinstance(wins_res["windows"], list)
+
+
+def test_controller_clamp_policy(controller: DesktopController) -> None:
+    """Verify that clamp safety policy restricts coordinates without raising."""
+    box = SafetyBoundingBox(min_x=100, min_y=100, max_x=500, max_y=500)
+    controller.set_safety_bounds(box, policy="clamp")
+    assert controller.get_safety_bounds() == box
+
+    # Moving to 50, 50 clamps to 100, 100
+    res = controller.set_cursor_position(50, 50)
+    assert res == (100, 100)
+
+    # Moving to 600, 700 clamps to 500, 500
+    res2 = controller.set_cursor_position(600, 700)
+    assert res2 == (500, 500)
+
+    # Reset
+    controller.set_safety_bounds(None)
+
+
+def test_controller_mouse_and_key_actions(controller: DesktopController) -> None:
+    """Verify low-level mouse actions (double_click, right_click, scroll, drag)."""
+    # Mouse movements and clicks
+    controller.set_cursor_position(200, 200)
+    controller.double_click(button="left")
+    controller.click_mouse(button="right")
+    controller.mouse_scroll(clicks=2, direction="up")
+    controller.mouse_scroll(clicks=2, direction="down")
+    controller.mouse_drag(200, 200, 210, 210, button="left", steps=2)
+
+    # Mouse down and up
+    controller.mouse_down("left")
+    controller.mouse_up("left")
+
+    # Keyboard down and up
+    controller.key_down("shift")
+    controller.key_up("shift")
+    controller.type_text("Hello Effero")
+
+
+def test_controller_window_geometry_transforms(controller: DesktopController) -> None:
+    """Verify screen to client and relative conversions with mock and real HWND."""
+    # Test screen to client and client to screen identity or offset
+    s_x, s_y = controller.client_to_screen(0, 50, 50)
+    assert isinstance(s_x, int) and isinstance(s_y, int)
+
+    c_x, c_y = controller.screen_to_client(0, s_x, s_y)
+    assert isinstance(c_x, int) and isinstance(c_y, int)
