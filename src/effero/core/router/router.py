@@ -132,5 +132,10 @@ class ModelRouter:
 
             return GoogleBackend(model=model, api_key=config.api_key)
 
+        elif provider in ("litert", "litert-lm", "litertlm"):
+            from effero.core.router.litert_backend import LiteRTLMBackend
+
+            return LiteRTLMBackend(model=model, device=config.device)
+
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

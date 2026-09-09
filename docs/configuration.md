@@ -8,8 +8,9 @@ Effero is configured via an `effero.yaml` file in your project root.
 agent:
   name: my-agent
   model:
-    backend: cactus          # cactus | ollama | openai | anthropic | google
-    model: cactus-7b
+    backend: litert          # litert | cactus | ollama | openai | anthropic | google
+    model: /models/gemma-3-1b.litertlm
+    device: npu              # auto | cpu | gpu | npu (for LiteRT-LM)
     fallback: [openai:gpt-4o] # ordered list of fallback backends
     min_confidence: 0.70     # confidence threshold for hybrid escalation
     hybrid_cloud_fallback: true # escalate low-confidence local runs to cloud
@@ -60,6 +61,7 @@ Effero's `pip install effero` is deliberately lightweight. Enable additional cap
 pip install effero[voice]    # ASR/TTS (faster-whisper, piper-tts)
 pip install effero[vision]   # Detection (ultralytics/YOLO)
 pip install effero[iot]      # MQTT/Matter protocols
+pip install effero[litert]   # Google AI Edge LiteRT-LM in-process engine
 pip install effero[llm]      # Cloud LLM SDKs (OpenAI, Anthropic, Google)
 pip install effero[all]      # Everything above
 ```

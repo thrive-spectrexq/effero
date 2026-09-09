@@ -17,6 +17,7 @@ class ModelConfig(BaseModel):
     base_url: str | None = None
     min_confidence: float = 0.7
     hybrid_cloud_fallback: bool = True
+    device: str = "auto"
 
 
 class AudioConfig(BaseModel):

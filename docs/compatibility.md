@@ -45,3 +45,17 @@ Effero supports hybrid routing with Cactus:
 2. If confidence meets or exceeds `model.min_confidence` (default `0.70`), the action is dispatched locally with zero external API latency or cost.
 3. If the model encounters ambiguity or confidence falls below the threshold, Effero automatically escalates the context to the configured cloud fallback backend (e.g. `openai:gpt-4o`, `anthropic:claude-sonnet-4-5`).
 
+## Google AI Edge LiteRT-LM (In-Process NPU & Edge Engine)
+
+For single-board computers (Raspberry Pi 5 with AI HAT), robotics controllers, and edge Linux boards, Effero supports [Google LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) (`backend: litert`).
+
+Unlike background HTTP server daemons, LiteRT-LM runs **in-process** via native Python bindings, directly accessing device NPUs and GPUs:
+
+| Hardware Target | Accelerator Backend | Model Format | Recommended SLM |
+|---|---|---|---|
+| Raspberry Pi 5 + AI HAT | NPU / Hailo-8 / Coral | `.litertlm` | Gemma 3 1B / SmolLM 1.7B |
+| Jetson Orin Nano / AGX | GPU (Vulkan/OpenCL) | `.litertlm` | Gemma 3 4B / Qwen 2.5 7B |
+| Android Robotics Tablets | NNAPI / Hexagon NPU | `.litertlm` | Gemma 3 1B / MobileLM |
+| Standard Edge x86/ARM | Multi-threaded CPU | `.litertlm` | Compact SLMs |
+
+
