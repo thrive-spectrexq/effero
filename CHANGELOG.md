@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-09-09
+
+### Added
+- **Graduated Human-In-The-Loop (HITL) Mode (`safety.approval`)**:
+  - Enhanced `AutoApprovalHandler(graduated=True)` to autonomously permit `READ_ONLY` and `ACT_AUTONOMOUS` skills while strictly gating `ACT_WITH_APPROVAL` and `ACT_RESTRICTED` actions for interactive human confirmation.
+  - Added async approval resolution support to `Agent` execution cycle.
+- **Unified Example Runner Architecture (`examples/runner.py`)**:
+  - Consolidated duplicate example launchers (`examples/local-smart-home/main.py` and `examples/desktop-copilot/main.py`) into a reusable `run_agent_loop(config_path)` helper with full CLI argument support.
+- **CI Dependency Lock Freshness Enforcement (`scripts/check_lock_freshness.py`)**:
+  - Added automated verification in CI ensuring `requirements-dev.lock` stays strictly synchronized with root dependencies in `pyproject.toml`.
+- **Rust Edge MCP Toolchain Verification**:
+  - Documented and verified Rust 1.85+ toolchain requirement (`rust-version = "1.85"` in `crates/effero-edge-mcp/Cargo.toml`).
+- **Test Hardening & Zero-Mock Coverage Expansion (87% total coverage, 370 passing tests)**:
+  - Replaced unlisted external mock dependency `respx` with native `httpx.MockTransport` in `tests/test_cloud_api.py`.
+  - Added full test coverage for LLM backends (`test_router_anthropic.py`, `test_router_google.py`, `test_router_openai.py`), voice perception, desktop automation, browser skills, IoT sensors/thermostats, and CLI commands.
+
+### Fixed
+- Eliminated B904 exception-chaining suppressions and E501 over-length line ignores across codebase (`ignore = []`).
+- Cleaned up stale scaffold documentation and comments across safety policies, example configs, and `README.md`.
+
 ## [0.1.6] - 2026-09-09
 
 ### Added
