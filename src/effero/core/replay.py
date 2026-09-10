@@ -26,7 +26,7 @@ class ReplayRecorder:
         self.event_bus = event_bus
         self.output_path = Path(output_path)
         self.topic_filter = topic_filter
-        self._file = None
+        self._file: Any = None
         self._count = 0
         self._is_recording = False
 

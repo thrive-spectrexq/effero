@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import inspect
+from typing import Any
 
 import pytest
 
@@ -118,7 +119,7 @@ class _FakeSafetyClient:
 
     async def check_action(self, skill_name: str, facts: dict | None = None) -> dict:
         self.recorded_calls.append((skill_name, facts or {}))
-        resp = {"decision": self.decision, "reason": self.reason}
+        resp: dict[str, Any] = {"decision": self.decision, "reason": self.reason}
         if self.limit is not None:
             resp["limit"] = self.limit
         return resp

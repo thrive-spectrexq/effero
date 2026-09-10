@@ -50,6 +50,7 @@ class Agent:
         self.safety: SafetyClient | None = None
         self.safety_daemon: Any = None
         self._heartbeat_task: asyncio.Task | None = None
+        self.server_api_key: str | None = None
         if self.config.safety.enabled:
             self.safety = SafetyClient(
                 host=self.config.safety.kernel_host,
