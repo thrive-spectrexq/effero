@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-09-10
+
+### Added
+- **Linux & Headless Desktop Automation Backend (`computer_use.desktop`)**:
+  - Implemented `LinuxDesktopBackend` leveraging `xdotool` and `wmctrl` for native Linux X11 window management and mouse/keyboard event dispatch.
+  - Implemented `HeadlessDesktopBackend` for deterministic virtual testing and headless CI/Docker test execution.
+  - Added OS-aware dynamic backend selection (`get_default_desktop_backend()`).
+- **Openpilot-Inspired Safety Watchdog & Heartbeat Monitor (`safety.watchdog`)**:
+  - Embedded high-frequency daemon watchdog into the Rust Safety Kernel with strict configurable timeout triggers.
+  - Added `Watchdog` monitoring, auto-tripping emergency e-stop upon missed agent heartbeat deadlines.
+  - Added heartbeat loop in Python `Agent` execution cycle.
+- **Isaac Lab-Style Closed-Loop Policy Evaluation Runner (`robotics.policy`)**:
+  - Added `PolicyRunner` and `BasePolicy` with fixed step sizes, observation normalization, action clipping, and trajectory recording.
+  - Registered `@skill` entry points `robotics.policy.step` and `robotics.policy.run_trajectory`.
+- **Deterministic Sensor & Event Replay Harness (`core.replay`)**:
+  - Added JSONL-based recording and playback for sensor telemetry and skill interactions.
+  - Implemented CLI subcommands `effero record` and `effero replay`.
+
+### Fixed
+- **Virtual Key Validation on Non-Windows / Headless Backends**:
+  - Enforced canonical virtual key validation across `HeadlessDesktopBackend` and `LinuxDesktopBackend`, ensuring unrecognized key strings consistently raise `ValueError("Unsupported virtual key ...")` across all operating systems.
+- **Mypy Static Typing Cleanliness**:
+  - Fixed parameter type annotations on `Agent.__init__`, `ReplayRecorder`, and test planners for 100% clean type checks across 164 source files.
+
 ## [0.1.8] - 2026-09-09
 
 ### Added
