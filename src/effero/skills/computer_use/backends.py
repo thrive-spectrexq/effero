@@ -209,6 +209,29 @@ for _i in range(10):
 for _c in "abcdefghijklmnopqrstuvwxyz":
     VK_MAP[_c] = 0x41 + (ord(_c) - ord("a"))
 
+KEY_ALIASES: dict[str, str] = {
+    "control": "ctrl",
+    "ctl": "ctrl",
+    "del": "delete",
+    "esc": "escape",
+    "windows": "win",
+    "super": "win",
+    "meta": "win",
+    "return": "enter",
+    "menu": "alt",
+    "spc": "space",
+}
+
+
+def validate_virtual_key(key_name: str) -> str:
+    """Validate a key string against canonical desktop keys, raising ValueError if unsupported."""
+    canonical = key_name.strip().lower()
+    canonical = KEY_ALIASES.get(canonical, canonical)
+    if canonical in VK_MAP or len(key_name) == 1:
+        return canonical
+    raise ValueError(f"Unsupported virtual key '{key_name}'")
+
+
 if IS_WINDOWS and user32 is not None:
     user32.EnumWindows.argtypes = [WNDENUMPROC, wintypes.LPARAM]
     user32.EnumWindows.restype = wintypes.BOOL
@@ -888,15 +911,19 @@ class HeadlessDesktopBackend(DesktopBackend):
         self.typed_text.append(text)
 
     def press_key(self, key: str, delay: float = 0.02) -> None:
+        validate_virtual_key(key)
         self.pressed_keys.append(key)
 
     def key_down(self, key: str) -> None:
+        validate_virtual_key(key)
         self.pressed_keys.append(key)
 
     def key_up(self, key: str) -> None:
-        pass
+        validate_virtual_key(key)
 
     def send_hotkey(self, keys: Sequence[str]) -> None:
+        for k in keys:
+            validate_virtual_key(k)
         self.sent_hotkeys.append(list(keys))
 
     def add_virtual_window(
@@ -1150,21 +1177,26 @@ class LinuxDesktopBackend(DesktopBackend):
         self._virtual.type_text(text, delay=delay)
 
     def press_key(self, key: str, delay: float = 0.02) -> None:
+        validate_virtual_key(key)
         if self._has_xdotool:
             self._run_cmd(["xdotool", "key", key])
         self._virtual.press_key(key, delay=delay)
 
     def key_down(self, key: str) -> None:
+        validate_virtual_key(key)
         if self._has_xdotool:
             self._run_cmd(["xdotool", "keydown", key])
         self._virtual.key_down(key)
 
     def key_up(self, key: str) -> None:
+        validate_virtual_key(key)
         if self._has_xdotool:
             self._run_cmd(["xdotool", "keyup", key])
         self._virtual.key_up(key)
 
     def send_hotkey(self, keys: Sequence[str]) -> None:
+        for k in keys:
+            validate_virtual_key(k)
         if self._has_xdotool and keys:
             combo = "+".join(keys)
             self._run_cmd(["xdotool", "key", combo])
