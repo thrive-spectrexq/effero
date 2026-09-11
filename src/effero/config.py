@@ -90,6 +90,23 @@ class IoTConfig(BaseModel):
     tls_insecure: bool = False
 
 
+class ROS2Config(BaseModel):
+    enabled: bool = False
+    node_name: str = "effero_bridge"
+    transport_host: str = "127.0.0.1"
+    transport_port: int = 9090
+    joint_trajectory_topic: str = "/joint_trajectory_controller/joint_trajectory"
+    joint_states_topic: str = "/joint_states"
+    cmd_vel_topic: str = "/cmd_vel"
+    auto_publish_arm_trajectory: bool = True
+    auto_publish_nav_cmd_vel: bool = True
+
+
+class RoboticsConfig(BaseModel):
+    enabled: bool = True
+    ros2: ROS2Config = Field(default_factory=ROS2Config)
+
+
 class MCPServerConfig(BaseModel):
     name: str
     command: str | None = None
@@ -112,6 +129,7 @@ class EfferoConfig(BaseModel):
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     fleet: FleetConfig = Field(default_factory=FleetConfig)
     iot: IoTConfig = Field(default_factory=IoTConfig)
+    robotics: RoboticsConfig = Field(default_factory=RoboticsConfig)
     mcp_servers: list[MCPServerConfig] = Field(default_factory=list)
 
     @classmethod

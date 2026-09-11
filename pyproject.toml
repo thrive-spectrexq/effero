@@ -4,7 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "effero"
-version = "0.1.9"
+version = "0.3.0"
+
 description = "One runtime for perceiving, reasoning, and acting — across computers, robots, and connected devices."
 readme = "README.md"
 requires-python = ">=3.11"

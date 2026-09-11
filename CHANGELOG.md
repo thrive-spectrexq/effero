@@ -5,7 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-11
+
+### Added
+- **ROS 2 Adapter Live Integration with Robotics Skills (`adapters.ros2`, `skills.robotics`)**:
+  - Implemented OMG Common Data Representation (CDR) wire serialization and deserialization for `geometry_msgs/Twist` and `Vector3`.
+  - Added `publish_cmd_vel` to `ROS2Bridge` supporting length-prefixed TCP streaming and in-memory CDR packet framing.
+  - Wired `ArmController` to automatically publish `trajectory_msgs/JointTrajectory` and `ActuatorCommand` to active ROS 2 bridge.
+  - Wired `NavigationController` to automatically publish `geometry_msgs/Twist` cmd_vel during transit, DWA obstacle avoidance, and emergency stops.
+  - Added `@skill` entry point `robotics.navigate.set_velocity` for continuous planar velocity control.
+  - Added `RoboticsConfig` and `ROS2Config` to `EfferoConfig` with automatic bridge initialization and clean shutdown in `Agent.start()` and `Agent.stop()`.
+- **Mobile Manipulator End-to-End Example (`examples/mobile-manipulator/`)**:
+  - Created runnable mobile manipulation application coordinating base navigation, visual target localization, and arm pick-and-place with live ROS 2 telemetry.
+  - Added `main.py` supporting both autonomous `--scenario` mission execution and interactive natural language REPL.
+  - Added architecture documentation and quickstart in `examples/mobile-manipulator/README.md`.
+- **Robotics & Agent Performance Benchmark Suite (`benchmarks/`)**:
+  - Added `bench_planner.py`: Agent planner step latency with tool dispatch and prompt generation.
+  - Added `bench_a_star.py`: A* grid path planning benchmark over 100x100 map with barrier obstacles and line-of-sight smoothing.
+  - Added `bench_dwa.py`: Dynamic Window Approach velocity search and candidate obstacle checking.
+  - Added `bench_cdr.py`: OMG CDR serialization and deserialization throughput (50-point trajectories, joint states, and twist messages).
+  - Added fallback benchmark fixture in `benchmarks/conftest.py` ensuring benchmarks execute reliably across all test runners.
+- **Hardware Compatibility Matrix Verification (`docs/compatibility.md`)**:
+  - Measured and published verified footprint metrics for Python 3.13 on x86-64 desktop (~1.6s warm start, 45.9 MB idle RAM).
+
 ## [0.1.9] - 2026-09-10
+
 
 ### Added
 - **Linux & Headless Desktop Automation Backend (`computer_use.desktop`)**:

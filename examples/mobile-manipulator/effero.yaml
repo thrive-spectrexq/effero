@@ -1,0 +1,25 @@
+agent:
+  name: mobile-manipulator-agent
+  model:
+    backend: openai
+    model_name: gpt-4o-mini
+    confidence_threshold: 0.70
+
+robotics:
+  enabled: true
+  ros2:
+    enabled: true
+    node_name: mobile_manipulator_bridge
+    transport_host: 127.0.0.1
+    transport_port: 9090
+    auto_publish_arm_trajectory: true
+    auto_publish_nav_cmd_vel: true
+
+safety:
+  approval_mode: auto
+  policy: crates/effero-safety-kernel/policies/example.yaml
+  heartbeat_enabled: true
+
+skills:
+  - robotics.navigate.*
+  - robotics.arm.*

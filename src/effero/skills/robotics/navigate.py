@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from dataclasses import dataclass
@@ -92,6 +93,43 @@ class NavigationController:
         self.landmarks: dict[str, Landmark] = {
             wp.name: Landmark(id=wp.name, x=wp.x, y=wp.y) for wp in self.waypoints.values()
         }
+        self.ros2_bridge: Any | None = None
+
+    def attach_ros2_bridge(self, bridge: Any | None) -> None:
+        """Attach or detach an active ROS 2 bridge adapter."""
+        self.ros2_bridge = bridge
+
+    def _publish_twist(self, linear_x: float, angular_z: float) -> None:
+        """Publish geometry_msgs/Twist to ROS 2 bridge if attached."""
+        if self.ros2_bridge is not None:
+            from effero.adapters.ros2.bridge import Twist, Vector3
+
+            twist = Twist(
+                linear=Vector3(x=linear_x, y=0.0, z=0.0),
+                angular=Vector3(x=0.0, y=0.0, z=angular_z),
+            )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.ros2_bridge.publish_cmd_vel(twist))
+            except RuntimeError:
+                pass
+
+    def set_velocity(self, linear_v: float, angular_w: float = 0.0) -> dict[str, Any]:
+        """Directly command mobile base linear (m/s) and angular (rad/s) velocities."""
+        if self.emergency_stopped:
+            return {
+                "status": "error",
+                "message": "Emergency stop is active. Clear stop before driving.",
+            }
+        self.linear_velocity_mps = max(-self.max_linear_velocity, min(self.max_linear_velocity, linear_v))
+        self.angular_velocity_radps = max(-self.max_angular_velocity, min(self.max_angular_velocity, angular_w))
+        self._publish_twist(self.linear_velocity_mps, self.angular_velocity_radps)
+        return {
+            "status": "success",
+            "linear_velocity": self.linear_velocity_mps,
+            "angular_velocity": self.angular_velocity_radps,
+            "pose": self.pose.to_dict(),
+        }
 
     def add_waypoint(self, name: str, x: float, y: float, yaw_deg: float = 0.0) -> None:
         """Register a new named coordinate in the map."""
@@ -125,6 +163,8 @@ class NavigationController:
         self.pose.y = target_y
         self.pose.yaw = target_yaw_rad
         self.total_odometry_distance += distance
+        self._publish_twist(self.max_linear_velocity, 0.0)
+        self._publish_twist(0.0, 0.0)
 
         logger.info(
             f"Navigation complete: from ({prev_pose['x']}, {prev_pose['y']}) "
@@ -159,6 +199,7 @@ class NavigationController:
         self.linear_velocity_mps = 0.0
         self.angular_velocity_radps = 0.0
         self.emergency_stopped = True
+        self._publish_twist(0.0, 0.0)
         logger.warning("Mobile base EMERGENCY STOP engaged.")
         return {
             "status": "success",
@@ -224,6 +265,9 @@ class NavigationController:
             omega=self.angular_velocity_radps,
         )
         best_v, best_omega, traj = self.dwa_controller.compute_velocity(state, (goal_x, goal_y), obs)
+        self.linear_velocity_mps = best_v
+        self.angular_velocity_radps = best_omega
+        self._publish_twist(best_v, best_omega)
         return {
             "linear_velocity": best_v,
             "angular_velocity": best_omega,
@@ -253,6 +297,7 @@ class NavigationController:
         self.pose.yaw = state.yaw
         self.linear_velocity_mps = state.v
         self.angular_velocity_radps = control_omega
+        self._publish_twist(control_v, control_omega)
         return {"status": "success", "state": state.to_dict()}
 
     def update_landmark_observation(self, landmark_id: str, range_m: float, bearing_rad: float) -> dict[str, Any]:
@@ -315,6 +360,15 @@ async def go_to(waypoint: str) -> dict[str, Any]:
 )
 async def go_to_coords(x: float, y: float, yaw_deg: float = 0.0) -> dict[str, Any]:
     return _nav_controller.navigate_to_coordinates(x, y, yaw_deg)
+
+
+@skill(
+    name="robotics.navigate.set_velocity",
+    description="Command continuous linear (m/s) and angular (rad/s) velocities to the robot mobile base.",
+    safety_class=SafetyClass.ACT_WITH_APPROVAL,
+)
+async def set_velocity(linear: float, angular: float = 0.0) -> dict[str, Any]:
+    return _nav_controller.set_velocity(linear, angular)
 
 
 @skill(

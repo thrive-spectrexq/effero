@@ -126,6 +126,19 @@ class Transform3D:
         """Return the identity SE(3) transform."""
         return cls(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
+    @classmethod
+    def from_euler(
+        cls,
+        x: float = 0.0,
+        y: float = 0.0,
+        z: float = 0.0,
+        roll: float = 0.0,
+        pitch: float = 0.0,
+        yaw: float = 0.0,
+    ) -> Transform3D:
+        """Construct Transform3D from Cartesian translation and Tait-Bryan Euler angles."""
+        return cls(x=x, y=y, z=z, roll=roll, pitch=pitch, yaw=yaw)
+
     @property
     def rotation_matrix(self) -> list[list[float]]:
         """Return 3x3 direction cosine rotation matrix (Z-Y-X Tait-Bryan angles)."""

@@ -10,6 +10,8 @@ from effero.adapters.ros2.bridge import (
     JointTrajectoryPoint,
     ROS2Bridge,
     ROS2CDRSerializer,
+    Twist,
+    Vector3,
 )
 
 __all__ = [
@@ -20,4 +22,6 @@ __all__ = [
     "JointTrajectoryPoint",
     "ActuatorCommand",
     "Header",
+    "Vector3",
+    "Twist",
 ]

@@ -275,3 +275,7 @@ class EKFLocalizer:
             v=self.v,
             covariance=[row[:] for row in self.P],
         )
+
+
+# Backward-compatibility alias
+ExtendedKalmanFilter = EKFLocalizer

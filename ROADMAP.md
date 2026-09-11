@@ -12,15 +12,15 @@
 
 ## Mid-term (v0.3.x)
 
-- [ ] ROS 2 adapter live integration with `robotics.*` skills
-- [ ] `mobile-manipulator` example (VLA + ROS 2 + navigation)
-- [ ] Hardware compatibility matrix with measured footprint numbers
-- [ ] Versioned documentation site (mkdocs-material + GitHub Pages)
+- [x] ROS 2 adapter live integration with `robotics.*` skills
+- [x] `mobile-manipulator` example (VLA + ROS 2 + navigation)
+- [x] Hardware compatibility matrix with measured footprint numbers
+- [x] Versioned documentation site (mkdocs-material + GitHub Pages)
 
 ## Longer-term
 
 - [ ] `industrial-monitor` and `multi-robot-swarm` examples
-- [ ] Performance benchmark suite (planner loop, EKF, A*, DWA)
+- [x] Performance benchmark suite (planner loop, EKF, A*, DWA, CDR, transforms)
 - [ ] Community skill marketplace / browsable catalog
 - [ ] Plugin-based adapter discovery
 

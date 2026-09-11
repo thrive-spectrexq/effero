@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from dataclasses import dataclass
@@ -151,6 +152,11 @@ class ArmController:
             wrist=math.radians(45.0),
         )
         self.gripper_open = True
+        self.ros2_bridge: Any | None = None
+
+    def attach_ros2_bridge(self, bridge: Any | None) -> None:
+        """Attach or detach an active ROS 2 bridge adapter."""
+        self.ros2_bridge = bridge
 
     @property
     def current_position(self) -> tuple[float, float, float]:
@@ -192,6 +198,39 @@ class ArmController:
         self.current_joints = target_joints
         new_pos = self.current_position
 
+        # 5. Publish trajectory to ROS 2 if bridge is attached
+        if self.ros2_bridge is not None:
+            from effero.adapters.ros2.bridge import (
+                Header,
+                JointTrajectory,
+                JointTrajectoryPoint,
+            )
+
+            traj_points: list[JointTrajectoryPoint] = []
+            for pt in sampled_points:
+                sec = int(pt.time)
+                nsec = int((pt.time - sec) * 1e9)
+                traj_points.append(
+                    JointTrajectoryPoint(
+                        positions=pt.positions,
+                        velocities=pt.velocities,
+                        accelerations=pt.accelerations,
+                        effort=[],
+                        time_from_start_sec=sec,
+                        time_from_start_nanosec=nsec,
+                    )
+                )
+            jt = JointTrajectory(
+                header=Header(frame_id="base_link"),
+                joint_names=["base", "shoulder", "elbow", "wrist"],
+                points=traj_points,
+            )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.ros2_bridge.publish_trajectory(jt))
+            except RuntimeError:
+                pass
+
         logger.info(f"Arm moved joints from {prev_pos} to {new_pos} (duration: {actual_duration:.2f}s)")
         return {
             "status": "success",
@@ -221,6 +260,22 @@ class ArmController:
     def set_gripper(self, open_gripper: bool) -> dict[str, Any]:
         """Actuate gripper mechanism."""
         self.gripper_open = open_gripper
+        if self.ros2_bridge is not None:
+            from effero.adapters.ros2.bridge import ActuatorCommand
+
+            cmd = ActuatorCommand(
+                actuator_id=10,
+                command_type="gripper",
+                target_position=1.0 if open_gripper else 0.0,
+                target_velocity=1.0,
+                max_torque=1.0,
+            )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.ros2_bridge.send_actuator_command(cmd))
+            except RuntimeError:
+                pass
+
         logger.info(f"Gripper set to: {'OPEN' if open_gripper else 'CLOSED'}")
         return {
             "status": "success",

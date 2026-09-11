@@ -67,6 +67,7 @@ class Agent:
 
         # External MCP clients
         self.mcp_clients: list[Any] = []
+        self.ros2_bridge: Any | None = None
 
         # Fleet coordinator (opt-in)
         if fleet is not None:
@@ -186,7 +187,31 @@ class Agent:
             except Exception as e:
                 logger.warning(f"Could not connect to MQTT broker ({e}) — running in local state mode")
 
-        # 4. Load external MCP servers if configured
+        # 4. Initialize ROS 2 bridge if configured
+        if self.config.robotics.ros2.enabled:
+            try:
+                from effero.adapters.ros2.bridge import ROS2Bridge
+                from effero.skills.robotics.arm import _arm_controller
+                from effero.skills.robotics.navigate import _nav_controller
+
+                self.ros2_bridge = ROS2Bridge(node_name=self.config.robotics.ros2.node_name)
+                try:
+                    await self.ros2_bridge.connect(
+                        host=self.config.robotics.ros2.transport_host,
+                        port=self.config.robotics.ros2.transport_port,
+                    )
+                except Exception as e:
+                    logger.info(f"ROS 2 socket bridge offline ({e}) — operating in in-memory CDR mode")
+
+                if self.config.robotics.ros2.auto_publish_arm_trajectory:
+                    _arm_controller.attach_ros2_bridge(self.ros2_bridge)
+                if self.config.robotics.ros2.auto_publish_nav_cmd_vel:
+                    _nav_controller.attach_ros2_bridge(self.ros2_bridge)
+                logger.info("Initialized ROS 2 bridge integration with robotics skills")
+            except Exception as e:
+                logger.warning(f"Failed to initialize ROS 2 bridge: {e}")
+
+        # 5. Load external MCP servers if configured
         if self.config.mcp_servers:
             from effero.protocols.mcp_client import MCPClient
 
@@ -208,10 +233,10 @@ class Agent:
                 except Exception as e:
                     logger.error(f"Failed to mount MCP server '{mcp_cfg.name}': {e}")
 
-        # 5. Load built-in skills
+        # 6. Load built-in skills
         self._load_builtin_skills()
 
-        # 6. Apply skill configuration filtering if specified in effero.yaml
+        # 7. Apply skill configuration filtering if specified in effero.yaml
         if self.config.skills:
             import fnmatch
 
@@ -238,6 +263,21 @@ class Agent:
             except Exception:
                 pass
         self.mcp_clients.clear()
+
+        if self.ros2_bridge:
+            try:
+                await self.ros2_bridge.disconnect()
+            except Exception:
+                pass
+            self.ros2_bridge = None
+            try:
+                from effero.skills.robotics.arm import _arm_controller
+                from effero.skills.robotics.navigate import _nav_controller
+
+                _arm_controller.attach_ros2_bridge(None)
+                _nav_controller.attach_ros2_bridge(None)
+            except Exception:
+                pass
 
         if self.config.iot.enabled:
             try:

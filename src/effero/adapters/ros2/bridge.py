@@ -70,6 +70,23 @@ class ActuatorCommand:
     max_torque: float = 1.0
 
 
+@dataclass
+class Vector3:
+    """ROS 2 geometry_msgs/Vector3."""
+
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+
+
+@dataclass
+class Twist:
+    """ROS 2 geometry_msgs/Twist."""
+
+    linear: Vector3 = field(default_factory=Vector3)
+    angular: Vector3 = field(default_factory=Vector3)
+
+
 # =============================================================================
 # OMG CDR Serialization Engine
 # =============================================================================
@@ -316,6 +333,33 @@ class ROS2CDRSerializer:
             max_torque=max_torque,
         )
 
+    @classmethod
+    def serialize_vector3(cls, enc: CDREncoder, v: Vector3) -> None:
+        enc.write_float64(v.x)
+        enc.write_float64(v.y)
+        enc.write_float64(v.z)
+
+    @classmethod
+    def deserialize_vector3(cls, dec: CDRDecoder) -> Vector3:
+        x = dec.read_float64()
+        y = dec.read_float64()
+        z = dec.read_float64()
+        return Vector3(x=x, y=y, z=z)
+
+    @classmethod
+    def serialize_twist(cls, msg: Twist) -> bytes:
+        enc = CDREncoder()
+        cls.serialize_vector3(enc, msg.linear)
+        cls.serialize_vector3(enc, msg.angular)
+        return enc.to_bytes()
+
+    @classmethod
+    def deserialize_twist(cls, data: bytes) -> Twist:
+        dec = CDRDecoder(data)
+        linear = cls.deserialize_vector3(dec)
+        angular = cls.deserialize_vector3(dec)
+        return Twist(linear=linear, angular=angular)
+
 
 # =============================================================================
 # Real ROS 2 Async Communication Bridge
@@ -339,6 +383,7 @@ class ROS2Bridge(DeviceAdapter):
         self._topics: dict[str, str] = {}
         self._published_count: int = 0
         self._latest_joint_state: dict[str, Any] | None = None
+        self._latest_twist: dict[str, Any] | None = None
 
     @property
     def is_connected(self) -> bool:
@@ -403,6 +448,20 @@ class ROS2Bridge(DeviceAdapter):
         self._published_count += 1
         return data
 
+    async def publish_cmd_vel(self, twist: Twist) -> bytes:
+        """Serialize Twist to CDR format and send to ROS 2 transport."""
+        data = ROS2CDRSerializer.serialize_twist(twist)
+        if self.is_connected and self._writer:
+            self._writer.write(struct.pack(">I", len(data)) + data)
+            await self._writer.drain()
+
+        self._published_count += 1
+        self._latest_twist = {
+            "linear": {"x": twist.linear.x, "y": twist.linear.y, "z": twist.linear.z},
+            "angular": {"x": twist.angular.x, "y": twist.angular.y, "z": twist.angular.z},
+        }
+        return data
+
     async def send_actuator_command(self, command: ActuatorCommand) -> bytes:
         """Serialize ActuatorCommand to CDR format and send to ROS 2 transport."""
         data = ROS2CDRSerializer.serialize_actuator_command(command)
@@ -447,6 +506,30 @@ class ROS2Bridge(DeviceAdapter):
                 "bytes_serialized": len(raw_cdr),
             }
 
+        elif command in ("cmd_vel", "publish_twist"):
+            lin = params.get("linear", {})
+            ang = params.get("angular", {})
+            twist = Twist(
+                linear=Vector3(
+                    x=float(lin.get("x", params.get("linear_x", 0.0))),
+                    y=float(lin.get("y", params.get("linear_y", 0.0))),
+                    z=float(lin.get("z", params.get("linear_z", 0.0))),
+                ),
+                angular=Vector3(
+                    x=float(ang.get("x", params.get("angular_x", 0.0))),
+                    y=float(ang.get("y", params.get("angular_y", 0.0))),
+                    z=float(ang.get("z", params.get("angular_z", 0.0))),
+                ),
+            )
+            raw_cdr = await self.publish_cmd_vel(twist)
+            return {
+                "status": "success",
+                "command": command,
+                "bytes_serialized": len(raw_cdr),
+                "linear": {"x": twist.linear.x, "y": twist.linear.y, "z": twist.linear.z},
+                "angular": {"x": twist.angular.x, "y": twist.angular.y, "z": twist.angular.z},
+            }
+
         elif command in self._actions:
             skill_target = self._actions[command]
             return {
@@ -466,6 +549,7 @@ class ROS2Bridge(DeviceAdapter):
             "connected": self.is_connected,
             "published_count": self._published_count,
             "latest_joint_state": self._latest_joint_state,
+            "latest_twist": self._latest_twist,
             "exposed_actions": list(self._actions.keys()),
             "exposed_topics": list(self._topics.keys()),
         }

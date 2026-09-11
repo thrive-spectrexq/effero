@@ -10,7 +10,7 @@ rack-mounted server. This table tracks what has been tested.
 
 | Device | CPU | RAM | OS | Effero Version | Status | Cold Start | Idle RAM | Notes |
 |---|---|---|---|---|---|---|---|---|
-| x86-64 desktop | i7-12700 | 32 GB | Ubuntu 24.04 | 0.1.4 | ✅ Tested | — | — | Primary development target |
+| x86-64 desktop | i7-12700 / Ryzen 7 | 32 GB | Windows 11 / Ubuntu 24.04 | 0.1.9+ | ✅ Tested | ~1.6s (warm) / ~4.5s (cold) | 45.9 MB | Primary development target; measured on Python 3.13 |
 | *Raspberry Pi 5* | *Cortex-A76* | *8 GB* | *Bookworm* | — | 🔲 Untested | — | — | *Target platform, needs validation* |
 | *Jetson Orin Nano* | *Cortex-A78AE* | *8 GB* | *JetPack 6* | — | 🔲 Untested | — | — | *GPU acceleration for vision/VLA* |
 | *Generic x86 mini-PC* | *N100* | *16 GB* | *Ubuntu 24.04* | — | 🔲 Untested | — | — | *Budget always-on home server* |
