@@ -49,6 +49,7 @@ class Planner:
         require_approval_for: list[str] | None = None,
         max_iterations: int = 10,
         facts_provider: Callable[..., dict[str, Any]] | None = None,
+        execution_mode: str = "adaptive",
     ) -> None:
         self.router = router
         self.memory = memory
@@ -59,6 +60,8 @@ class Planner:
         self.require_approval_for = require_approval_for or []
         self.max_iterations = max_iterations
         self.facts_provider = facts_provider
+        self.execution_mode = execution_mode
+        self.consecutive_successes = 0
 
     async def run(self, instruction: str) -> str:
         """Execute a plan/act/observe loop for the given instruction."""
@@ -69,11 +72,17 @@ class Planner:
         tools = self._get_tools_schema()
 
         for i in range(self.max_iterations):
-            logger.info(f"Planning iteration {i + 1}/{self.max_iterations}")
+            logger.info(f"Planning iteration {i + 1}/{self.max_iterations} (mode={self.execution_mode})")
+
+            # In adaptive mode, when consecutive successes are high, fast-path minimizes prompt overhead
+            is_fast_path = (self.execution_mode == "fast") or (
+                self.execution_mode == "adaptive" and self.consecutive_successes >= 2
+            )
 
             request = LLMRequest(
                 messages=self.memory.get_context(),
                 tools=tools if tools else None,
+                temperature=0.2 if is_fast_path else 0.7,
             )
             response = await self.router.complete(request)
             self.callbacks.on_llm_response(response)
@@ -99,9 +108,24 @@ class Planner:
                     ],
                 )
                 # Execute each tool call
+                any_error = False
                 for tc in response.tool_calls:
                     result = await self._execute_skill(tc.name, tc.arguments)
                     self.memory.add_tool_result(tc.id, tc.name, result)
+                    if isinstance(result, dict) and "error" in result:
+                        any_error = True
+
+                if any_error:
+                    self.consecutive_successes = 0
+                    # When an action fails, inject self-healing reflection prompt in deliberative mode
+                    if self.execution_mode in ("adaptive", "deliberative"):
+                        self.memory.add_message(
+                            "system",
+                            "[Adaptive Execution] An action encountered an error. "
+                            "Escalate to deliberative reflection: analyze failure reason and re-evaluate next step.",
+                        )
+                else:
+                    self.consecutive_successes += len(response.tool_calls)
             else:
                 return response.content or "(no response)"
 

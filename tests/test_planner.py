@@ -256,3 +256,47 @@ async def test_safety_kernel_limit_clamping() -> None:
         if "Clamped 'robotics.navigate' argument 'speed' from 2.5 to 0.5" in str(m.get("content"))
     ]
     assert len(memory_thoughts) == 1
+
+
+@pytest.mark.asyncio
+async def test_adaptive_execution_escalation_on_error() -> None:
+    """Verify that when an action fails, planner escalates to deliberative reflection."""
+    memory = WorkingMemory()
+    skills = SkillRegistry()
+
+    def failing_fn() -> dict[str, str]:
+        return {"error": "Obstacle detected in trajectory"}
+
+    spec = SkillSpec(
+        name="robotics.move_arm",
+        description="Move arm trajectory",
+        safety_class=SafetyClass.ACT_AUTONOMOUS,
+        func=failing_fn,
+        signature=inspect.signature(failing_fn),
+    )
+    functools.update_wrapper(spec, failing_fn)
+    skills.register(spec)
+
+    router = ScriptedBackend(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-fail", name="robotics.move_arm", arguments={})],
+            ),
+            LLMResponse(content="Plan recovered by replanning alternative path around obstacle."),
+        ]
+    )
+
+    planner = Planner(router=router, memory=memory, skills=skills, execution_mode="adaptive")
+    result = await planner.run("Reach the target object")
+    assert result == "Plan recovered by replanning alternative path around obstacle."
+
+    # Verify that the adaptive reflection message was injected into context
+    reflection_msgs = [
+        m.get("content")
+        for m in memory.get_context()
+        if "[Adaptive Execution] An action encountered an error. Escalate to deliberative reflection"
+        in str(m.get("content"))
+    ]
+    assert len(reflection_msgs) == 1
+    assert planner.consecutive_successes == 0

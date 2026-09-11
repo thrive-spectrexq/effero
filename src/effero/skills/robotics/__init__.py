@@ -35,6 +35,7 @@ from effero.skills.robotics.navigate import (
     localize_position_fix,
     localize_predict,
     plan_path,
+    set_velocity,
     stop,
     track_path,
 )
@@ -99,6 +100,7 @@ __all__ = [
     "home",
     "go_to",
     "go_to_coords",
+    "set_velocity",
     "stop",
     "get_position",
     "plan_path",

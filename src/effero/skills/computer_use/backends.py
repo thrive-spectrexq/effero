@@ -274,6 +274,33 @@ if IS_WINDOWS and user32 is not None:
     user32.SendInput.restype = wintypes.UINT
     user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
     user32.PostMessageW.restype = wintypes.BOOL
+    user32.EnumChildWindows.argtypes = [wintypes.HWND, WNDENUMPROC, wintypes.LPARAM]
+    user32.EnumChildWindows.restype = wintypes.BOOL
+    user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetClassNameW.restype = ctypes.c_int
+
+
+@dataclass(frozen=True)
+class UIElementInfo:
+    """Represents metadata and bounding geometry of a UI element or child control."""
+
+    hwnd: int
+    parent_hwnd: int
+    class_name: str
+    text: str
+    x: int
+    y: int
+    width: int
+    height: int
+    is_visible: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @property
+    def center(self) -> tuple[int, int]:
+        """Compute the element center point (x, y)."""
+        return self.x + (self.width // 2), self.y + (self.height // 2)
 
 
 @dataclass(frozen=True)
@@ -463,6 +490,11 @@ class DesktopBackend(ABC):
     @abstractmethod
     def get_window_rect(self, hwnd: int) -> tuple[int, int, int, int] | None:
         """Get window bounds rectangle (left, top, right, bottom)."""
+        ...
+
+    @abstractmethod
+    def list_elements(self, hwnd: int, visible_only: bool = True) -> list[UIElementInfo]:
+        """Enumerate child controls and UI elements within the specified window handle."""
         ...
 
 
@@ -839,6 +871,55 @@ class Win32DesktopBackend(DesktopBackend):
             return rect.left, rect.top, rect.right, rect.bottom
         return None
 
+    def list_elements(self, hwnd: int, visible_only: bool = True) -> list[UIElementInfo]:
+        if not IS_WINDOWS or user32 is None:
+            return []
+
+        elements: list[UIElementInfo] = []
+
+        def enum_child_proc(child_hwnd: int, lparam: int) -> bool:
+            if visible_only and not user32.IsWindowVisible(child_hwnd):
+                return True
+
+            rect = RECT()
+            user32.GetWindowRect(child_hwnd, ctypes.byref(rect))
+            w = rect.right - rect.left
+            h = rect.bottom - rect.top
+            if visible_only and (w <= 0 or h <= 0):
+                return True
+
+            # Get text
+            text_len = user32.GetWindowTextLengthW(child_hwnd)
+            text = ""
+            if text_len > 0:
+                buff = ctypes.create_unicode_buffer(text_len + 1)
+                user32.GetWindowTextW(child_hwnd, buff, text_len + 1)
+                text = buff.value
+
+            # Get class name
+            cls_buff = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(child_hwnd, cls_buff, 256)
+            class_name = cls_buff.value
+
+            elements.append(
+                UIElementInfo(
+                    hwnd=child_hwnd,
+                    parent_hwnd=hwnd,
+                    class_name=class_name,
+                    text=text,
+                    x=rect.left,
+                    y=rect.top,
+                    width=w,
+                    height=h,
+                    is_visible=bool(user32.IsWindowVisible(child_hwnd)),
+                )
+            )
+            return True
+
+        cb = WNDENUMPROC(enum_child_proc)
+        user32.EnumChildWindows(hwnd, cb, 0)
+        return elements
+
 
 # ============================================================================
 # Headless Virtual Desktop Backend
@@ -853,6 +934,7 @@ class HeadlessDesktopBackend(DesktopBackend):
         self.height = max(1, screen_height)
         self.cursor_pos: tuple[int, int] = (screen_width // 2, screen_height // 2)
         self.windows: dict[int, WindowInfo] = {}
+        self.elements: dict[int, list[UIElementInfo]] = {}
         self.active_hwnd: int | None = None
         self.typed_text: list[str] = []
         self.pressed_keys: list[str] = []
@@ -951,6 +1033,38 @@ class HeadlessDesktopBackend(DesktopBackend):
         if is_active:
             self.active_hwnd = hwnd
         return win
+
+    def add_virtual_element(
+        self,
+        hwnd: int,
+        parent_hwnd: int,
+        class_name: str,
+        text: str,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        is_visible: bool = True,
+    ) -> UIElementInfo:
+        elem = UIElementInfo(
+            hwnd=hwnd,
+            parent_hwnd=parent_hwnd,
+            class_name=class_name,
+            text=text,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            is_visible=is_visible,
+        )
+        self.elements.setdefault(parent_hwnd, []).append(elem)
+        return elem
+
+    def list_elements(self, hwnd: int, visible_only: bool = True) -> list[UIElementInfo]:
+        elems = self.elements.get(hwnd, [])
+        if visible_only:
+            return [e for e in elems if e.is_visible]
+        return list(elems)
 
     def list_windows(self, visible_only: bool = True) -> list[WindowInfo]:
         return list(self.windows.values())
@@ -1328,6 +1442,9 @@ class LinuxDesktopBackend(DesktopBackend):
         if win:
             return (win.x, win.y, win.x + win.width, win.y + win.height)
         return None
+
+    def list_elements(self, hwnd: int, visible_only: bool = True) -> list[UIElementInfo]:
+        return self._virtual.list_elements(hwnd, visible_only=visible_only)
 
 
 def get_default_desktop_backend() -> DesktopBackend:
