@@ -41,6 +41,7 @@ class Agent:
     ) -> None:
         self.config = config or EfferoConfig.load()
         self.event_bus = EventBus()
+        self._load_builtin_skills()
         self.skills = skills or global_registry
         self.working_memory = WorkingMemory()
         self.episodic_memory = EpisodicMemory()
