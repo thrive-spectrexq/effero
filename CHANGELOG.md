@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2026-09-11
+
+### Added
+- **Embodied AI & Agentic Benchmark Suite (`effero.evaluation`)**:
+  - Implemented `BenchmarkRunner`, `BenchmarkScenario`, `BenchmarkReport`, `EvaluationMetric`, and `ScenarioResult` for deterministic regression testing and continuous agent evaluation.
+  - Added comprehensive benchmark scenarios in `effero.evaluation.scenarios`:
+    - `warehouse_pallet_pick_place`: Multi-stage mobile manipulation verifying Cartesian bounds, pick-and-place accuracy, and zero collision violations.
+    - `office_waypoint_transit`: Differential drive mobile base navigation and target coordinate convergence.
+    - `smart_climate_regulation`: Autonomous telemetry-driven thermostat regulation triggered by room occupancy.
+  - Implemented automated report generation with pass rates, execution durations, total estimated token costs, tool call distributions, and Markdown export (`report.to_markdown()`).
+- **Frontier LLM Unit Economics & Token Pricing (`core.callbacks.telemetry`)**:
+  - Expanded `TelemetryCallback._estimate_cost` to track unit economics across modern frontier models: `gpt-4.5`, `o1-mini`, `o3-mini`, `claude-3-7-sonnet`, and `gemini-2.0-flash`.
+  - Continuous calculation of cost-per-scenario and aggregate evaluation spend during benchmark runs.
+- **Adaptive Planner Execution Loop & Deliberative Reflection (`core.planner`)**:
+  - Added dynamic execution modes in `Planner`:
+    - Fast-path execution with automatic temperature reduction during consecutive successful tool invocations.
+    - Automatic deliberative self-healing reflection prompt injection upon encountering tool execution errors.
+- **Desktop UI Element Inspection & Tree Enumeration (`skills.computer_use.backends`)**:
+  - Added `UIElementInfo` dataclass capturing handle, parent handle, window class name, text, and bounding geometry.
+  - Added `DesktopBackend.list_elements(hwnd)` with native Win32 child window traversal (`EnumChildWindows`, `GetClassNameW`) and virtual simulation support in `HeadlessDesktopBackend` and `LinuxDesktopBackend`.
+
+### Fixed
+- **Eager Skill Loading on Offline Evaluation Agents (`core.agent`)**:
+  - Configured `Agent.__init__` to eagerly populate built-in skills into the local registry so evaluation and benchmark agents function offline without requiring full network or daemon startup.
+- **Robotics Skill Registry Public Export (`skills.robotics`)**:
+  - Added `set_velocity` to `effero.skills.robotics.__all__`, achieving 100% compliance in `scripts/lint_skills.py`.
+
 ## [0.1.10] - 2026-09-11
 
 ### Added
