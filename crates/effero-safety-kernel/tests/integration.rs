@@ -1,7 +1,17 @@
 use effero_safety_kernel::{Engine, Policy, Watchdog};
+use std::net::TcpListener as StdTcpListener;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
+
+fn available_port() -> u16 {
+    let listener =
+        StdTcpListener::bind(("127.0.0.1", 0)).expect("failed to bind ephemeral local port");
+    listener
+        .local_addr()
+        .expect("failed to get ephemeral local address")
+        .port()
+}
 
 #[tokio::test]
 async fn test_tcp_server_legacy_and_allow() {
@@ -18,7 +28,7 @@ rules:
     let policy = Policy::from_yaml_str(yaml).unwrap();
     let engine = Engine::load(policy).unwrap();
 
-    let port = 19400 + (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos() % 1000) as u16;
+    let port = available_port();
 
     tokio::spawn(async move {
         effero_safety_kernel::server::serve(engine, "127.0.0.1", port, None).await.unwrap();
@@ -60,7 +70,7 @@ rules:
     let engine = Engine::load(policy).unwrap();
     let watchdog = Watchdog::new(Duration::from_millis(100));
 
-    let port = 20400 + (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos() % 1000) as u16;
+    let port = available_port();
 
     tokio::spawn(async move {
         effero_safety_kernel::server::serve(engine, "127.0.0.1", port, Some(watchdog)).await.unwrap();
