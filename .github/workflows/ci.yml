@@ -23,7 +23,7 @@ jobs:
           - 1883:1883
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -72,7 +72,7 @@ jobs:
         crate: [effero-safety-kernel, effero-edge-mcp]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -94,7 +94,7 @@ jobs:
     name: docker build smoke test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Build Docker image
         run: docker build -t effero:test .
