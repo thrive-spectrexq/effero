@@ -77,6 +77,21 @@ def test_cli_config_get_and_set(tmp_path: Path, capsys: pytest.CaptureFixture[st
     assert "qwen3:8b" in captured.out
 
 
+def test_cli_config_set_supports_nested_scalar_values(tmp_path: Path) -> None:
+    config_path = tmp_path / "effero.yaml"
+    main(["init", str(tmp_path / "proj")])
+    config_path = tmp_path / "proj" / "effero.yaml"
+
+    assert main(["config", "set", "server.port", "8088", "--config", str(config_path)]) == 0
+    assert main(["config", "set", "safety.heartbeat_enabled", "false", "--config", str(config_path)]) == 0
+
+    from effero.config import EfferoConfig
+
+    config = EfferoConfig.load(config_path)
+    assert config.server.port == 8088
+    assert config.safety.heartbeat_enabled is False
+
+
 def test_cli_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc_info:
         main(["--version"])

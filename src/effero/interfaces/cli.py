@@ -195,6 +195,41 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _set_config_value(config: Any, key: str, value: str) -> bool:
+    """Set a scalar config value using a dotted path."""
+    aliases = {
+        "model.backend": "agent.model.backend",
+        "model.name": "agent.model.model",
+        "model": "agent.model.model",
+        "name": "agent.name",
+    }
+    path = aliases.get(key, key).split(".")
+    target = config
+    for part in path[:-1]:
+        if not hasattr(target, part):
+            return False
+        target = getattr(target, part)
+
+    field = path[-1]
+    if not hasattr(target, field):
+        return False
+
+    current = getattr(target, field)
+    try:
+        if isinstance(current, bool):
+            converted: Any = value.lower() in ("true", "1", "yes", "on")
+        elif isinstance(current, int) and not isinstance(current, bool):
+            converted = int(value)
+        elif isinstance(current, float):
+            converted = float(value)
+        else:
+            converted = value
+        setattr(target, field, converted)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     setup_logging()
     parser = build_parser()
@@ -285,30 +320,9 @@ def handle_config(args: argparse.Namespace) -> None:
         key: str = args.key
         value: str = args.value
 
-        # Support dotted keys (e.g. model.backend, agent.name)
-        if key in ("model.backend", "agent.model.backend"):
-            config.agent.model.backend = value
-        elif key in ("model.name", "agent.model.model", "model"):
-            config.agent.model.model = value
-        elif key in ("agent.name", "name"):
-            config.agent.name = value
-        elif key == "safety.enabled":
-            config.safety.enabled = value.lower() in ("true", "1", "yes")
-        elif key == "safety.policy":
-            config.safety.policy = value
-        elif key == "safety.kernel_host":
-            config.safety.kernel_host = value
-        elif key == "safety.kernel_port":
-            config.safety.kernel_port = int(value)
-        elif key == "fleet.enabled":
-            config.fleet.enabled = value.lower() in ("true", "1", "yes")
-        else:
-            # Generic top-level attribute fallback
-            if hasattr(config, key):
-                setattr(config, key, value)
-            else:
-                print(f"Unknown config key: {key}")
-                return
+        if not _set_config_value(config, key, value):
+            print(f"Invalid or unknown config key: {key}")
+            return
 
         if getattr(args, "model", None):
             config.agent.model.model = args.model
