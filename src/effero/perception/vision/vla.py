@@ -381,6 +381,7 @@ class ONNXVLAEngine:
             home_dir.mkdir(parents=True, exist_ok=True)
             self.model_path = home_dir / "vla_model.onnx"
         else:
+            assert model_path is not None
             self.model_path = Path(model_path)
 
         if not self.model_path.exists():
