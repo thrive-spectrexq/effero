@@ -4,7 +4,6 @@
 
 **One runtime for perceiving, reasoning, and acting — across computers, robots, and connected devices.**
 
-*Latin: **effero** — "I carry out, I bring forth." From language to action.*
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
