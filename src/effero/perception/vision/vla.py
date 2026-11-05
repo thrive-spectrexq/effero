@@ -289,6 +289,9 @@ def export_vla_onnx_model(output_path: str | Path, feature_dim: int = 64) -> str
     )
 
     model = helper.make_model(graph, producer_name="effero-vla", opset_imports=[helper.make_opsetid("", 17)])
+    # Keep generated artifacts readable by the older ONNX Runtime versions
+    # commonly installed on edge devices.
+    model.ir_version = 10
     onnx.checker.check_model(model)
     onnx.save(model, str(out_path))
     logger.info(f"Exported valid ONNX VLA model to {out_path}")
@@ -372,7 +375,8 @@ class ONNXVLAEngine:
         self.max_step_size = max_step_size
         self.smoothing_filter = smoothing_filter or EMASmoothingFilter(smoothing_factor=0.7)
 
-        if model_path is None:
+        using_default_model = model_path is None
+        if using_default_model:
             home_dir = Path.home() / ".effero" / "models"
             home_dir.mkdir(parents=True, exist_ok=True)
             self.model_path = home_dir / "vla_model.onnx"
@@ -383,11 +387,21 @@ class ONNXVLAEngine:
             logger.info(f"VLA model not found at {self.model_path}; generating valid local ONNX artifact.")
             export_vla_onnx_model(self.model_path)
 
-        # Initialize ONNX Runtime InferenceSession
-        self.session = ort.InferenceSession(
-            str(self.model_path),
-            providers=["CPUExecutionProvider"],
-        )
+        try:
+            self.session = ort.InferenceSession(
+                str(self.model_path),
+                providers=["CPUExecutionProvider"],
+            )
+        except Exception as exc:
+            if not using_default_model:
+                raise RuntimeError(f"Unable to load ONNX VLA model at {self.model_path}") from exc
+
+            logger.warning("Cached VLA model at %s is incompatible; regenerating it.", self.model_path)
+            export_vla_onnx_model(self.model_path)
+            self.session = ort.InferenceSession(
+                str(self.model_path),
+                providers=["CPUExecutionProvider"],
+            )
 
         # Inspect session metadata
         inputs = self.session.get_inputs()
