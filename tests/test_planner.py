@@ -90,6 +90,103 @@ async def test_unknown_skill() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("arguments", "expected_error"),
+    [
+        ({"a": 2}, "missing a required argument: 'b'"),
+        ({"a": 2, "b": 3, "extra": 4}, "unexpected keyword argument 'extra'"),
+    ],
+)
+async def test_invalid_tool_arguments_are_reported(
+    arguments: dict[str, int],
+    expected_error: str,
+) -> None:
+    """Malformed model tool calls should return actionable errors without invoking the skill."""
+    router = ScriptedBackend(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-invalid", name="test.add", arguments=arguments)],
+            ),
+            LLMResponse(content="I need corrected arguments."),
+        ]
+    )
+    memory = WorkingMemory()
+    skills = _make_registry_with_skill()
+
+    planner = Planner(router=router, memory=memory, skills=skills)
+    result = await planner.run("Add two numbers")
+
+    assert result == "I need corrected arguments."
+    tool_msgs = [m for m in memory.get_context() if m.get("role") == "tool"]
+    assert len(tool_msgs) == 1
+    assert expected_error in str(tool_msgs[0]["content"])
+
+
+@pytest.mark.asyncio
+async def test_adaptive_state_resets_between_instructions() -> None:
+    """A prior instruction must not force later instructions onto the fast path."""
+    router = ScriptedBackend(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[ToolCall(id="call-1", name="test.add", arguments={"a": 1, "b": 2})],
+            ),
+            LLMResponse(content="First instruction complete."),
+            LLMResponse(content="Second instruction complete."),
+        ]
+    )
+    planner = Planner(router=router, memory=WorkingMemory(), skills=_make_registry_with_skill())
+
+    assert await planner.run("first") == "First instruction complete."
+    assert planner.consecutive_successes == 1
+    assert await planner.run("second") == "Second instruction complete."
+    assert router.history[2].temperature == 0.7
+    assert planner.consecutive_successes == 0
+
+
+@pytest.mark.asyncio
+async def test_tool_call_budget_prevents_unbounded_execution() -> None:
+    """A single response cannot execute more than the configured tool-call budget."""
+    executions = 0
+
+    def counted_fn() -> str:
+        nonlocal executions
+        executions += 1
+        return "ok"
+
+    spec = SkillSpec(
+        name="test.counted",
+        description="Count executions",
+        safety_class=SafetyClass.READ_ONLY,
+        func=counted_fn,
+        signature=inspect.signature(counted_fn),
+    )
+    functools.update_wrapper(spec, counted_fn)
+    skills = SkillRegistry()
+    skills.register(spec)
+    router = ScriptedBackend(
+        [
+            LLMResponse(
+                content=None,
+                tool_calls=[
+                    ToolCall(id="call-1", name="test.counted", arguments={}),
+                    ToolCall(id="call-2", name="test.counted", arguments={}),
+                    ToolCall(id="call-3", name="test.counted", arguments={}),
+                ],
+            )
+        ]
+    )
+
+    planner = Planner(router=router, memory=WorkingMemory(), skills=skills, max_tool_calls=2)
+    assert await planner.run("count twice") == "(max tool calls reached)"
+    assert executions == 2
+    tool_msgs = [m for m in planner.memory.get_context() if m.get("role") == "tool"]
+    assert len(tool_msgs) == 3
+    assert "budget exhausted" in str(tool_msgs[-1]["content"])
+
+
+@pytest.mark.asyncio
 async def test_max_iterations() -> None:
     """Planner should stop after max_iterations."""
     # Router always returns tool calls, never text

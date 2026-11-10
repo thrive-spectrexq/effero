@@ -119,6 +119,9 @@ class MCPServerConfig(BaseModel):
 class AgentConfig(BaseModel):
     name: str = "effero-agent"
     model: ModelConfig = Field(default_factory=ModelConfig)
+    execution_mode: str = "adaptive"
+    max_iterations: int = 10
+    max_tool_calls: int = 50
 
 
 class EfferoConfig(BaseModel):

@@ -35,6 +35,25 @@ async def test_agent_skill_filtering() -> None:
     await agent.stop()
 
 
+def test_agent_wires_planner_execution_limits() -> None:
+    """Planner execution controls should be configurable through EfferoConfig."""
+    config = EfferoConfig(
+        agent=AgentConfig(
+            name="bounded-agent",
+            model=ModelConfig(backend="openai", model="test"),
+            execution_mode="deliberative",
+            max_iterations=3,
+            max_tool_calls=7,
+        )
+    )
+
+    agent = Agent(config)
+
+    assert agent.planner.execution_mode == "deliberative"
+    assert agent.planner.max_iterations == 3
+    assert agent.planner.max_tool_calls == 7
+
+
 @pytest.mark.asyncio
 async def test_require_approval_for_wildcard_matching() -> None:
     """Verify Planner flags skills matching require_approval_for wildcard patterns."""

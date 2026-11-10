@@ -7,6 +7,9 @@ Effero is configured via an `effero.yaml` file in your project root.
 ```yaml
 agent:
   name: my-agent
+  execution_mode: adaptive  # adaptive | fast | deliberative
+  max_iterations: 10        # planning iterations per instruction
+  max_tool_calls: 50        # skill invocations per instruction
   model:
     backend: litert          # litert | cactus | ollama | openai | anthropic | google
     model: /models/gemma-3-1b.litertlm

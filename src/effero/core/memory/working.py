@@ -20,7 +20,7 @@ class WorkingMemory:
         self.messages.append(msg)
         self._trim()
 
-    def add_tool_result(self, tool_call_id: str, name: str, result: str) -> None:
+    def add_tool_result(self, tool_call_id: str, name: str, result: Any) -> None:
         msg = {
             "role": "tool",
             "tool_call_id": tool_call_id,

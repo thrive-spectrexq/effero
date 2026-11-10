@@ -50,7 +50,12 @@ class Planner:
         max_iterations: int = 10,
         facts_provider: Callable[..., dict[str, Any]] | None = None,
         execution_mode: str = "adaptive",
+        max_tool_calls: int = 50,
     ) -> None:
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be at least 1")
+        if max_tool_calls < 1:
+            raise ValueError("max_tool_calls must be at least 1")
         self.router = router
         self.memory = memory
         self.skills = skills
@@ -61,12 +66,15 @@ class Planner:
         self.max_iterations = max_iterations
         self.facts_provider = facts_provider
         self.execution_mode = execution_mode
+        self.max_tool_calls = max_tool_calls
         self.consecutive_successes = 0
 
     async def run(self, instruction: str) -> str:
         """Execute a plan/act/observe loop for the given instruction."""
         from effero.core.router.base import LLMRequest
 
+        self.consecutive_successes = 0
+        tool_calls_used = 0
         self.memory.add_message("system", SYSTEM_PROMPT)
         self.memory.add_message("user", instruction)
         tools = self._get_tools_schema()
@@ -110,10 +118,22 @@ class Planner:
                 # Execute each tool call
                 any_error = False
                 for tc in response.tool_calls:
-                    result = await self._execute_skill(tc.name, tc.arguments)
+                    if tool_calls_used >= self.max_tool_calls:
+                        result = {
+                            "error": (
+                                f"Tool call budget exhausted ({self.max_tool_calls} calls per instruction). "
+                                "Continue without invoking additional skills."
+                            )
+                        }
+                    else:
+                        tool_calls_used += 1
+                        result = await self._execute_skill(tc.name, tc.arguments)
                     self.memory.add_tool_result(tc.id, tc.name, result)
                     if isinstance(result, dict) and "error" in result:
                         any_error = True
+
+                if tool_calls_used >= self.max_tool_calls:
+                    return "(max tool calls reached)"
 
                 if any_error:
                     self.consecutive_successes = 0
@@ -140,6 +160,11 @@ class Planner:
             skill_spec = self.skills.get(name)
         except KeyError:
             return {"error": f"Unknown skill: {name}"}
+
+        try:
+            skill_spec.signature.bind(**args)
+        except TypeError as exc:
+            return {"error": f"Invalid arguments for skill '{name}': {exc}"}
 
         needs_approval = (
             getattr(skill_spec, "safety_class", None) == SafetyClass.ACT_WITH_APPROVAL
