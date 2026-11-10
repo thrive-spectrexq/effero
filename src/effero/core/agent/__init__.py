@@ -119,6 +119,9 @@ class Agent:
             callbacks=self.callbacks,
             require_approval_for=self.config.safety.require_approval_for,
             facts_provider=_agent_facts_provider,
+            execution_mode=self.config.agent.execution_mode,
+            max_iterations=self.config.agent.max_iterations,
+            max_tool_calls=self.config.agent.max_tool_calls,
         )
 
     async def run(self, instruction: str) -> str:

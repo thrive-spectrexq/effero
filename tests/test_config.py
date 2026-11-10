@@ -13,6 +13,9 @@ def test_default_config() -> None:
     assert config.agent.name == "effero-agent"
     assert config.agent.model.backend == "openai"
     assert config.agent.model.model == "gpt-4o"
+    assert config.agent.execution_mode == "adaptive"
+    assert config.agent.max_iterations == 10
+    assert config.agent.max_tool_calls == 50
     assert config.safety.enabled is True
     assert config.safety.kernel_port == 9400
 
